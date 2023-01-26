@@ -15,9 +15,6 @@ import glob
 from matplotlib.colors import hex2color, rgb2hex
 import cv2
 
-ti.init(arch=ti.gpu)
-
-
 def hex2numpy(c):
     return np.array(hex2color(c))
 

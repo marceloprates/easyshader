@@ -940,7 +940,7 @@ class Shape:
     def isometric(self):
         return self.rotate(pi / 4, "x").rotate(atan2(1, sqrt(2)), "y")
 
-    def onion(self, n=60, thickness=0.4, n2 = None):
+    def onion(self, n=60, thickness=0.4, n2 = '10'):
 
         if n2 is None:
             n2 = n
@@ -954,7 +954,7 @@ class Shape:
 
         @ti.func
         def sdf(p, t):
-            f = self(p, t) * eval(n2)
+            f = self(p, t)**2 * eval(n2)
             i = int(f)
             if f < 0:
                 if i % 2 == 1:
