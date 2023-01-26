@@ -1,0 +1,8 @@
+taichi==1.1.3
+pillow==9.2.0
+taichi_glsl==0.0.12
+matplotlib==3.6.1
+opencv-python==4.6.0.66
+scikit-learn==1.1.2
+scikit-image==0.19.3
+shapely==1.8.5
