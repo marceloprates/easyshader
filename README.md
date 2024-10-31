@@ -15,14 +15,14 @@ Sphere(1)
     
 
 
-Use the "color" parameter to paint your object
+# Use the "color" parameter to paint your object
 
 
 ```python
 Icosahedron(1,'#f55')
 ```
 
-You can choose from the following primitives:
+# You can choose from the following primitives:
 
 - Box
 - BoxFrame
@@ -92,7 +92,7 @@ for obj in [Sphere(1), Cyllinder(1,1), Cone(1,2), Torus(1,.2), Box(1), BoxFrame(
     
 
 
-Export your creations to polygon meshes for 3d printing or rendering on external apps (e.g. Blender)
+# Export your creations to polygon meshes for 3d printing or rendering on external apps (e.g. Blender)
 
 
 ```python
@@ -100,7 +100,7 @@ Torus(1,.4).to_mesh(simplify = 500, save_path = 'torus.ply')
 ```
 
 
-Color your creations using functions defined over x,y,z and a color palette:
+# Color your creations using functions defined over x,y,z and a color palette:
 
 
 ```python
