@@ -1,6 +1,6 @@
 # easyshader: Examples
 
-## "easyshader" is a Signed Distance Fields (SDF) implementation in Python/Taichi with a focus on simplicity and a compositional syntax.
+Drawing with easyshader is very simple.
 
 
 ```python
@@ -11,91 +11,91 @@ Sphere(1)
 
 
     
-![png](README_files/examples_1_0.png)
+![png](README_files/examples_2_0.png)
     
 
 
-Use the 'color' parameter to paint your object
+Use the "color" parameter to paint your object
 
 
 ```python
 Icosahedron(1,'#f55')
 ```
 
+You can choose from the following primitives:
 
-    
-![png](README_files/examples_3_0.png)
-    
-
+- Box
+- BoxFrame
+- Callable
+- Cone
+- Cyllinder
+- Icosahedron
+- Iterable
+- Line
+- Number
+- Octahedron
+- Shape
+- Sphere
+- Torus
 
 
 ```python
-%load_ext autoreload
-%autoreload 2
-from easyshader import *
-
 for obj in [Sphere(1), Cyllinder(1,1), Cone(1,2), Torus(1,.2), Box(1), BoxFrame(1,.1), Icosahedron(1), Octahedron(1)]:
-    display(obj.paint('#55f'))
+    display(obj.paint('#0B4F6C'))
 ```
 
-    The autoreload extension is already loaded. To reload it, use:
-      %reload_ext autoreload
-
-
 
     
-![png](README_files/examples_4_1.png)
+![png](README_files/examples_6_0.png)
     
 
 
 
     
-![png](README_files/examples_4_2.png)
+![png](README_files/examples_6_1.png)
     
 
 
 
     
-![png](README_files/examples_4_3.png)
+![png](README_files/examples_6_2.png)
     
 
 
 
     
-![png](README_files/examples_4_4.png)
+![png](README_files/examples_6_3.png)
     
 
 
 
     
-![png](README_files/examples_4_5.png)
+![png](README_files/examples_6_4.png)
     
 
 
 
     
-![png](README_files/examples_4_6.png)
+![png](README_files/examples_6_5.png)
     
 
 
 
     
-![png](README_files/examples_4_7.png)
+![png](README_files/examples_6_6.png)
     
 
 
 
     
-![png](README_files/examples_4_8.png)
+![png](README_files/examples_6_7.png)
     
 
+
+Export your creations to polygon meshes for 3d printing or rendering on external apps (e.g. Blender)
 
 
 ```python
-%load_ext autoreload
-%autoreload 2
-from easyshader import *
-
 Icosahedron(1).to_mesh(simplify = 20)
 ```
 
@@ -112,9 +112,9 @@ Icosahedron(1).to_mesh(simplify = 20)
     <title>trimesh: threejs viewer</title>
     <meta charset=&quot;utf-8&quot;>
     <meta name=&quot;viewport&quot; content=&quot;width=device-width, 
-		   user-scalable=no, 
-		   minimum-scale=1.0, 
-		   maximum-scale=1.0&quot;>
+       user-scalable=no, 
+       minimum-scale=1.0, 
+       maximum-scale=1.0&quot;>
     <style>
       body {
       margin: 0px;
@@ -1370,9 +1370,9 @@ Torus(1,.4).to_mesh(simplify = 500, save_path = 'torus.ply')
     <title>trimesh: threejs viewer</title>
     <meta charset=&quot;utf-8&quot;>
     <meta name=&quot;viewport&quot; content=&quot;width=device-width, 
-		   user-scalable=no, 
-		   minimum-scale=1.0, 
-		   maximum-scale=1.0&quot;>
+       user-scalable=no, 
+       minimum-scale=1.0, 
+       maximum-scale=1.0&quot;>
     <style>
       body {
       margin: 0px;
@@ -2614,12 +2614,10 @@ init();</script></body>
 
 
 
+Color your creations using functions defined over x,y,z and a color palette:
+
 
 ```python
-#%load_ext autoreload
-#%autoreload 2
-#from easyshader import *
-
 palette = ['#B80C09','#0B4F6C','#01BAEF','#FBFBFF','#040F16']
 
 x = Box(.9, 'palette(4*(x+y**2+z**3))', palette = palette)
@@ -2629,67 +2627,50 @@ x
 
 
     
-![png](README_files/examples_7_0.png)
-    
-
-
-
-```python
-x = Sphere(1, 'palette(4*(x+y+z))', palette = palette)
-
-display(x)
-
-x = x.twist(2)
-
-display(x)
-```
-
-
-    
-![png](README_files/examples_8_0.png)
-    
-
-
-
-    
-![png](README_files/examples_8_1.png)
-    
-
-
-
-```python
-BoxFrame(1,.1,palette[1]) + Sphere(.5,palette[0])
-```
-
-
-    
-![png](README_files/examples_9_0.png)
-    
-
-
-
-```python
-Box(1,palette[4]) - Sphere(1.2)
-```
-
-
-    
-![png](README_files/examples_10_0.png)
-    
-
-
-
-```python
-Icosahedron(1,palette[1]) & Sphere(1.1)
-```
-
-
-    
 ![png](README_files/examples_11_0.png)
     
 
 
-A coffe cup
+# Union:
+
+
+```python
+BoxFrame(1,.1,'#0B4F6C') + Sphere(.5,'#B80C09')
+```
+
+
+    
+![png](README_files/examples_13_0.png)
+    
+
+
+# Difference:
+
+
+```python
+Box(1,'#0B4F6C') - Sphere(1.2)
+```
+
+
+    
+![png](README_files/examples_15_0.png)
+    
+
+
+# Intersection:
+
+
+```python
+Icosahedron(1,'#0B4F6C') & Sphere(1.1)
+```
+
+
+    
+![png](README_files/examples_17_0.png)
+    
+
+
+## A coffee cup!
 
 
 ```python
@@ -2707,18 +2688,15 @@ x
 
 
     
-![png](README_files/examples_13_0.png)
+![png](README_files/examples_19_0.png)
     
 
 
+# Create videos!
+## Use the 't' (time) variable to control the animation
+
 
 ```python
-%load_ext autoreload
-%autoreload 2
-from easyshader import *
-
-palette = ['#B80C09','#0B4F6C','#01BAEF','#FBFBFF','#040F16']
-
 x = Box(1,'palette(4*((x+sin(t))+(y+cos(t))**2+z**3))',palette = palette)
 x += 'ry t'
 x += 'rx t'
@@ -2726,16 +2704,6 @@ x += 'rx t'
 x.animate(frames = 60, framerate = 15, iterations = 20)
 ```
 
-    [Taichi] version 1.1.3, llvm 10.0.0, commit 1262a70a, linux, python 3.10.15
-    [I 10/26/24 19:43:42.666 49262] [shell.py:_shell_pop_print@33] Graphical python shell detected, using wrapped sys.stdout
-    [W 10/26/24 19:43:43.046 49262] [cuda_driver.cpp:load_lib@36] libcuda.so lib not found.
-    [Taichi] Starting on arch=vulkan
-    [I 10/26/24 19:43:43.120 49262] [vulkan_device_creator.cpp:pick_physical_device@393] Found Vulkan Device 0 (Intel(R) Graphics (RPL-P))
-    [I 10/26/24 19:43:43.121 49262] [vulkan_device_creator.cpp:create_logical_device@461] Vulkan Device "Intel(R) Graphics (RPL-P)" supports Vulkan 0 version 1.3.274
-    [TaiGLSL] version 0.0.12
-    Jupyter environment detected. Enabling Open3D WebVisualizer.
-    [Open3D INFO] WebRTC GUI backend enabled.
-    [Open3D INFO] WebRTCWindowSystem: HTTP handshake server disabled.
 
 
     Animating..: 100%|██████████| 59/59 [00:55<00:00,  1.07it/s]
@@ -2745,34 +2713,9 @@ x.animate(frames = 60, framerate = 15, iterations = 20)
 
 
     
-![png](README_files/examples_14_2.png)
+![png](README_files/examples_21_2.png)
     
 
-
-
-
-```python
-x.rendering_kwargs
-```
-
-
-    ---------------------------------------------------------------------------
-
-    AttributeError                            Traceback (most recent call last)
-
-    Cell In[16], line 1
-    ----> 1 x.rendering_kwargs
-
-
-    File ~/anaconda3/envs/main/lib/python3.10/site-packages/taichi/lang/kernel_impl.py:1017, in data_oriented.<locals>._getattr(self, item)
-       1015     x = method.fget
-       1016 else:
-    -> 1017     x = super(cls, self).__getattribute__(item)
-       1018 if hasattr(x, '_is_wrapped_kernel'):
-       1019     if inspect.ismethod(x):
-
-
-    AttributeError: 'Shape' object has no attribute 'rendering_kwargs'
 
 
 
