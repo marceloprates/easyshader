@@ -19,4 +19,7 @@ setup(
     classifiers=[
         "Intended Audience :: Science/Research",
     ],
+    package_data={
+        "": ["requirements.txt"],
+    },
 )
