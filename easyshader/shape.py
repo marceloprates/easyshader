@@ -1,89 +1,83 @@
-# Taichi and Taichi-GLSL imports
-import ast
-from ast import arguments
-import taichi as ti
-from taichi import *
-import taichi_glsl as tg
-from taichi_glsl import mix, clamp
+"""
+.. module:: shape
+   :synopsis: Implements the easyshaper.Shape class
+.. moduleauthor:: Marcelo Prates <github.com/marceloprates>
+"""
 
-# Easyshader imports
-from .utils import *
-from .transformations import *
-from easyshader import Rendering
-
-# Other imports
 import os
 import re
-import sys
-import inspect
-import IPython
 import subprocess
-from PIL import Image
 from copy import deepcopy
 from numbers import Number
-from functools import reduce
-from inspect import signature
-from typing import Iterable, Callable, Union
+from typing import Callable, Iterable, List, Union
 
-# Numerical computing imports
+import trimesh
 import cv2
+import IPython
+import numpy as np
+
+# import open3d as o3d
+import PIL
+import taichi as ti
+from numpy import pi
+import taichi_glsl as tg
+
+# import vsketch
+from infix import shift_infix as infix
+from IPython.display import clear_output
+from matplotlib import pyplot as plt
 from numpy import pi as π
 from numpy.linalg import norm
+from PIL import Image
+from shapely.geometry import MultiPolygon, Polygon
+from skimage.measure import find_contours, marching_cubes
 from sklearn.cluster import KMeans
-from skimage.measure import find_contours
-from shapely.geometry import Polygon, MultiPolygon
+from taichi import *
+from taichi_glsl import clamp, mix
 
-# Vsketch (for pen plotting)
-import vsketch
-from dataclasses import dataclass
+from easyshader import Light, Rendering
 
-
-def load_texture(input):
-
-    if type(input) == str:
-        img = np.array(Image.open(input).convert(
-            "RGB"), dtype=np.float32) / 255
-    else:
-        img = input.astype(np.float32)
-
-    if len(img.shape) > 2:
-        if len(img.shape) == 4:
-            img = img[:, :, :3]
-        img = np.transpose(img[:, ::-1, :], (1, 0, 2))
-        w, h, k = img.shape
-        texture = ti.Vector.field(3, dtype=ti.f32, shape=(w, h))
-    else:
-        img = np.transpose(img[:, ::-1], (1, 0))
-        w, h = img.shape
-        texture = ti.field(ti.f32, shape=(w, h))
-
-    texture.from_numpy(img)
-    return texture
-
-@dataclass
-class Transform:
-    transform: Union[Callable, str]
+from .transformations import *
+from .utils import *
+from scipy.ndimage import gaussian_filter
+import open3d as o3d
+from .camera import Camera
 
 @ti.data_oriented
 class Shape:
-    """_summary_"""
-
     def __init__(
         self,
         sdf: Union[Callable, str] = "z",
         color: Union[Callable, str] = "#fff",
-        transform: Union[Callable, str] = "(x,y,z)",
-        textures: Iterable[Union[str, np.array]] = [],
-        palette: Iterable[str] = ["#000", "#fff"],
-        rendering_kwargs: dict = {},
-        background_color=None,  #: str = "#fff",
-        widgets: dict = {},
-        gui: bool = False,
-        text=None,
-        mask_background=False,
+        textures: List[Union[str, PIL.Image.Image, np.ndarray]] = [],
+        palette: List[Union[str, Iterable[Number]]] = ["#000", "#fff"],
+        background_color: any = None,
+        text: any = None,
         **kwargs,
     ):
+        """
+        Generic "Shape" class.
+
+        :param sdf: A Signed Distance Function (SDF). Can be either a function or a string. defaults to "z"
+        :type sdf: Union[Callable, str], optional
+        :param color: _description_, defaults to "#fff"
+        :type color: Union[Callable, str], optional
+        :param textures: _description_, defaults to []
+        :type textures: List[Union[str, PIL.Image.Image, np.ndarray]], optional
+        :param palette: _description_, defaults to ["#000", "#fff"]
+        :type palette: List[Union[str, Iterable[Number]]], optional
+        :param rendering_kwargs: _description_, defaults to {}
+        :type rendering_kwargs: dict, optional
+        :param background_color: _description_, defaults to None
+        :type background_color: any, optional
+        :param animated: _description_, defaults to None
+        :type animated: bool, optional
+        :param text: _description_, defaults to None
+        :type text: any, optional
+        """
+
         # Set attributes
+        self.__name__ = ""
         self.__dict__.update(locals())
         self.__dict__.update(kwargs)
         del self.__dict__["self"]
@@ -110,6 +104,10 @@ class Shape:
         # Get palette field
         self.palette_field = get_palette(palette)
 
+        self.depth_resolution = 2000
+        resolution = [self.depth_resolution] * 2
+        self.depth = ti.field(ti.f32, shape=resolution)
+
         # Render text
         if text is not None:
 
@@ -123,9 +121,10 @@ class Shape:
                     verticalalignment="center",
                 )
 
-            h, w = Rendering(**self.rendering_kwargs).resolution
+            # h, w = Rendering(scene=Shape(), **self.rendering_kwargs).resolution
+            h, w = Camera().rendering_kwargs["resolution"]
             dpi = 300
-            fig, ax = plt.subplots(figsize=(20, 20), dpi=dpi)
+            fig, ax = plt.subplots(figsize=(h / dpi, w / dpi), dpi=dpi)
             fig.patch.set_facecolor("#000")
 
             ax.text(**text, color="#fff")
@@ -150,56 +149,52 @@ class Shape:
 
     def _ipython_display_(self):
         IPython.display.display(self.render())
-    
+
     def step(self):
         pass
 
     def augment_locals(self, func):
-
         def inner(p, t):
             # access p (x,y,z) coordinates directly
             x, y, z = p
+
             # 'palette' function for indexing palette
             def palette(i):
                 return tg.bilerp(
                     self.palette_field,
-                    ti.Vector([round(i) % self.palette_field.shape[0], 0]),
+                    ti.Vector(
+                        [round(ti.cast(i, ti.f32)) % self.palette_field.shape[0], 0]
+                    ),
                 )
+
             # 'texture' function for indexing textures
             def texture(i, x, y):
                 h, w = self.texture_fields[i].shape
                 return tg.bilerp(
-                    self.texture_fields[i], ti.Vector(
-                        [(-x + 0.5) * w, (-y + 0.5) * h])
+                    self.texture_fields[i], ti.Vector([(-x + 0.5) * w, (-y + 0.5) * h])
                 )
+
             # 'text' function for indexing text texture
             def text(x, y):
                 h, w = self.text_field.shape
                 return tg.bilerp(
-                    self.text_field, ti.Vector(
-                        [(-x + 0.5) * w, (-y + 0.5) * h])
+                    self.text_field, ti.Vector([(-x + 0.5 * h / w) * w, (-y + 0.5) * w])
                 )
-            
-            for attr in self.__dict__.keys():
-                attr = self.__dict__[attr]
 
-            return eval(func) if type(func) == str else func(p,t)
+            for attr in self.__dict__.keys():
+                exec(f'{attr} = self.__dict__["{attr}"]')
+
+            return eval(func) if type(func) == str else func(p, t)
 
         return inner
 
-    def paint(
-        self,
-        color=None,
-        palette=None,
-        textures=None,
-        inplace = False,
-        **kwargs
-    ):
+    def paint(self, color=None, palette=None, textures=None, inplace=False, **kwargs):
+
         shape = Shape(
             sdf=self.sdf,
-            **(dict(color = color) if color is not None else {}),
-            **(dict(palette = palette) if palette is not None else {}),
-            **(dict(textures = textures) if textures is not None else {}),
+            **(dict(color=color) if color is not None else {}),
+            **(dict(palette=palette) if palette is not None else {}),
+            **(dict(textures=textures) if textures is not None else {}),
             **{k: v for k, v in kwargs.items()},
             **{
                 k: v
@@ -208,28 +203,27 @@ class Shape:
                 and k not in ["sdf", "color", "palette", "textures", "texture_fields"]
             },
         )
-        
+
         if inplace:
             self.color = shape.color
             self.palette = shape.palette
             self.textures = shape.textures
         else:
             return shape
-            
 
     # Rendering-related functions
 
-    def GUI(
-        self,
-        frames=None,
-        **rendering_kwargs
-    ):
+    def GUI(self, **rendering_kwargs):
 
         rendering_kwargs = rendering_kwargs
 
+        background = Shape(
+            f"z+{global_background['distance']}", global_background["color"]
+        )
+
         # Create rendering object
         rendering = Rendering(
-            scene=[self],
+            scene=(background + self),
             **rendering_kwargs,
         )
 
@@ -249,161 +243,105 @@ class Shape:
             t += 2 * π / rendering.frames
         gui_.close()
 
-    def rendering(self, **kwargs):
+    def render(self, t=0, save=False, depth=False, background = '#aaa', background_distance = 2, **kwargs):
+        img = self.render_static(t=t, depth=depth, background = background, background_distance = background_distance, **kwargs)
+        if save:
+            img.save(save)
+        return img
 
-        background_color = (
-            kwargs.pop(
-                "background_color") if "background_color" in kwargs else None
+    def render_static(self, t=0, save=False, lights=[Light()], depth=False, background_distance = 2, background = None, **camera_kwargs):
+
+        camera = Camera(camera_pos=(0,0,8))
+
+        # Overwrite camera rendering_kwargs with "camera_kwargs" keyword arguments
+        for arg, value in camera_kwargs.items():
+            camera.rendering_kwargs[arg] = value
+
+        return camera.snap(
+            (Shape(f"z+{background_distance}", background) + self) if background is not None else self,
+            lights=lights,
+            t=t,
+            depth=depth,
         )
-
-        rendering_kwargs = deepcopy(self.rendering_kwargs)
-        rendering_kwargs.update(kwargs)
-
-        return Shape(
-            self.sdf,
-            self.color,
-            background_color=self.background_color if background_color is None else background_color,
-            rendering_kwargs=rendering_kwargs,
-            **{
-                k: v
-                for k, v in self.__dict__.items()
-                if k not in ["sdf", "color", "rendering_kwargs", "background_color"]
-            },
-        )
-
-    def render(self, **kwargs):
-        return self.render_static(**kwargs)
-
-    def render_static(self, **rendering_kwargs):
-
-        background_color = None
-        if "background_color" in rendering_kwargs:
-            background_color = rendering_kwargs.pop("background_color")
-        elif "background_color" in self.__dict__:
-            background_color = self.background_color
-
-        # Create rendering object
-        rendering = Rendering(
-            #scene=[Shape("z+1", color=background_color), self]
-            #if background_color is not None
-            #else [self],
-            [self],
-            **(
-                {
-                    k: v
-                    for k, v in self.rendering_kwargs.items()
-                    if k not in rendering_kwargs
-                }
-                if (self.rendering_kwargs is not None)
-                else {}
-            ),
-            **rendering_kwargs
-            # **(self.rendering_kwargs),
-        )
-
-        # Create & return static image
-        rendering.render(0)
-        result = (
-            (255 * rendering.result()).transpose(1,
-                                                 0, 2)[::-1, :, :].astype(np.uint8)
-        )
-        result = Image.fromarray(result, mode="RGBA")
-
-        return result
 
     def animate(
+        self,
+        camera=Camera(),
+        lights=[Light()],
+        background='#fff',
+        background_distance = 2,
+        save=False,
+        resume=False,
+        frames=None,
+        framerate=30,
+        **camera_kwargs,
+    ):
+
+        # Overwrite camera rendering_kwargs with "camera_kwargs" keyword arguments
+        for arg, value in camera_kwargs.items():
+            camera.rendering_kwargs[arg] = value
+        # Overwrite frames and framerate parameters (if not None)
+        for arg in ["frames", "framerate"]:
+            if eval(arg) is not None:
+                camera.rendering_kwargs[arg] = eval(arg)
+        background = Shape(
+            f"z+{background_distance}", background
+        )
+        return camera.record(
+            (background + self) if background is not None else self,
+            lights=lights,
+            resume=resume,
+            **(dict(path=save) if save else dict()),
+        )
+
+    def animate_ascii(
         self,
         path=".tmp/output.gif",
         **rendering_kwargs,
     ):
 
-        # Create folder
-        directory = "/".join(path.split("/")[:-1])
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-        # Clean folder
-        for f in os.listdir(directory):
-            if f.endswith(".png"):
-                os.remove(f"{directory}/{f}")
+        if "resolution" not in rendering_kwargs:
+            rendering_kwargs["resolution"] = (80, 80)
 
-        background_color = (
+        (
             rendering_kwargs.pop("background_color")
             if "background_color" in rendering_kwargs
             else self.background_color
         )
-        frames = rendering_kwargs.pop(
-            "frames") if "frames" in rendering_kwargs else 20
-        framerate = (
-            rendering_kwargs.pop(
-                "framerate") if "framerate" in rendering_kwargs else 30
-        )
+        frames = rendering_kwargs.pop("frames") if "frames" in rendering_kwargs else 20
+        (rendering_kwargs.pop("framerate") if "framerate" in rendering_kwargs else 30)
 
         # Create rendering object
         rendering = Rendering(
-            scene=[self],
+            scene=Shape("z+4", color="#fff") + self,
             **rendering_kwargs,
         )
 
         # Create animation
-        for i, t in enumerate(np.linspace(0, 2 * np.pi, frames)[:-1]):
-            self.step()
-            rendering.color_buffer.fill(0.0)
-            rendering.iteration = 0
-            rendering.render(t)
-            result = (
-                (255 * rendering.result())
-                .transpose(1, 0, 2)[::-1, :, :]
-                .astype(np.uint8)
-            )
-            Image.fromarray(result).save(f".tmp/{i}.png")
+        while True:
+            for i, t in enumerate(np.linspace(0, 2 * np.pi, frames)[:-1]):
+                self.step()
+                rendering.color_buffer.fill(0.0)
+                rendering.iteration = 0
+                rendering.render(t)
+                result = (
+                    (255 * rendering.result())
+                    .transpose(1, 0, 2)[::-1, :, :]
+                    .astype(np.uint8)
+                )
 
-        if path.split(".")[-1] == "gif":
-            # Create & display GIF
-            subprocess.call(
-                [
-                    "ffmpeg",
-                    "-hide_banner",
-                    "-loglevel",
-                    "error",
-                    "-i",
-                    f".tmp/%d.png",
-                    path,
-                    "-y",
-                    "-framerate",
-                    str(framerate),
-                ]
-            )
-        else:
-            # Create MP4
-            subprocess.call(
-                [
-                    "ffmpeg",
-                    "-hide_banner",
-                    "-loglevel",
-                    "error",
-                    "-i",
-                    f".tmp/%d.png",
-                    path,
-                    "-y",
-                    "-framerate",
-                    str(framerate),
-                ]
-            )
+                clear_output()
+                print(img2ascii(result))
 
-        return IPython.display.Image(
-            data=open(f".tmp/output.gif", "rb").read(), format="png"
-        )
-
-    def save(self, path, display=False):
+    def save(self, path, display=True):
 
         # Render static scene and save as temporary file
         result = self.render()
-        Image.fromarray(result).save(path)
+        result.save(path)
 
         if display:
             IPython.display.display(
-                IPython.display.Image(
-                    data=open(path, "rb").read(), format="png")
+                IPython.display.Image(data=open(path, "rb").read(), format="png")
             )
 
     def vectorize(self, n_colors=2, **kwargs):
@@ -423,8 +361,7 @@ class Shape:
 
         # Create a list of "color layers" from KMeans output
         color_layers = [
-            MultiPolygon([Polygon(c)
-                         for c in find_contours(labels, level=level + 0.5)])
+            MultiPolygon([Polygon(c) for c in find_contours(labels, level=level + 0.5)])
             for level in sorted(
                 range(n_colors),
                 key=lambda i: norm(kmeans.cluster_centers_[i]),
@@ -447,7 +384,8 @@ class Shape:
 
                 for i, vec in enumerate(vecs):
                     vsk.stroke(i + 1)  # vsk.fill(i+1)
-                    # if i > 0: vsk.fill(i+1);
+                    if i % 2 == 1:
+                        vsk.fill(i + 1)
                     vsk.geometry(vec)
 
                 if save is not None:
@@ -458,17 +396,94 @@ class Shape:
 
         MySketch().display()
 
+    def to_mesh(self, resolution=400, level=0.0, save_path="output.ply", preview=True, simplify = None):
+        """
+        Generates a mesh using the marching cubes algorithm and saves it as an OBJ file.
+
+        :param resolution: The resolution of the grid for the marching cubes algorithm.
+        :param level: The level value to use for the isosurface.
+        :param save_path: The path to save the OBJ file.
+        """
+        # Create a grid of points
+        x = ti.field(dtype=ti.f32, shape=resolution)
+        y = ti.field(dtype=ti.f32, shape=resolution)
+        z = ti.field(dtype=ti.f32, shape=resolution)
+        s = 10
+        x.from_numpy(np.linspace(-s, s, resolution, dtype=np.float32))
+        y.from_numpy(np.linspace(-s, s, resolution, dtype=np.float32))
+        z.from_numpy(np.linspace(-s, s, resolution, dtype=np.float32))
+        grid = np.meshgrid(x.to_numpy(), y.to_numpy(), z.to_numpy(), indexing="ij")
+        points = np.stack(grid, axis=-1).reshape(-1, 3)
+
+        # Evaluate the SDF at each point
+        sdf_values = ti.field(dtype=ti.f32, shape=(resolution, resolution, resolution))
+
+        @ti.kernel
+        def compute_sdf():
+            for i, j, k in ti.ndrange(resolution, resolution, resolution):
+                p = ti.Vector([x[i], y[j], z[k]])
+                sdf_values[i, j, k] = self.sdf(p, 0)
+
+        compute_sdf()
+
+        # Apply Gaussian smoothing to the SDF values
+        sdf_np = sdf_values.to_numpy()
+        #sdf_smoothed = gaussian_filter(sdf_np, sigma=0.5)
+
+        # Use marching cubes to extract the mesh
+        verts, faces, normals, values = marching_cubes(sdf_np, level=level)
+
+        # Convert verts to a Taichi field
+        verts_field = ti.Vector.field(3, dtype=ti.f32, shape=verts.shape[0])
+        verts_field.from_numpy(verts)
+
+        # Get colors for each vertex
+        colors = ti.Vector.field(3, dtype=ti.f32, shape=verts.shape[0])
+
+        @ti.kernel
+        def compute_colors():
+            for i in range(verts_field.shape[0]):
+                colors[i] = self.color(verts_field[i], 0)
+
+        compute_colors()
+        colors_np = 255 * colors.to_numpy()
+
+        # Transform vertices back to original coordinates
+        verts = (verts / (resolution - 1)) * 2 - 1
+
+        # Create a trimesh object
+        mesh = trimesh.Trimesh(vertices=verts, faces=faces, vertex_colors=colors_np)
+
+        # Save the mesh as a PLY file
+        mesh.export(save_path, file_type="ply")
+
+        # Load the mesh from the .ply file using Open3D
+        mesh = o3d.io.read_triangle_mesh(save_path)
+
+        if simplify:
+            # Simplify the mesh
+            simplified_mesh = mesh.simplify_quadric_decimation(simplify)
+            # Save the simplified mesh
+            o3d.io.write_triangle_mesh(save_path, simplified_mesh)
+
+        if preview:
+            mesh = trimesh.load_mesh(save_path)
+
+            scene = trimesh.Scene(mesh)
+
+            return scene.show()
+
     # Binary operators
 
     def __and__(self, o):
         """
 
-        Computes the intersection between two shapes, f and g, expressed as Signed Distance Functions (SDF).
+        Computes the intersection between two Shapes, f and g, expressed as Signed Distance Functions (SDF).
 
         The intersection is computed as:
 
         .. math::
-            (f \& g)(p) = \min(f(p),g(p))
+            (f \& g)(p) = \max(f(p),g(p))
 
         :param other: A Shape expressed as a SDF
         :type other: Shape
@@ -478,10 +493,10 @@ class Shape:
         .. code-block::
             :caption: Example: Intersection between sphere and a half-plane
 
-                input: Sphere(.15) & Shape('x')
+                input: Sphere(1) & Shape('x')
                 output:
 
-        .. image:: ../../docs/source/_static/and.png
+        .. image:: ../source/_static/and.png
             :scale: 60 %
             :alt: alternate text
             :align: center
@@ -508,34 +523,100 @@ class Shape:
         )
 
     def __add__(self, o):
+        """
+
+        Computes:
+
+        - if **type(g) == Shape**: The union of two Shapes f and g.
+
+        The union is computed as:
+
+        .. math::
+            (f + g)(p) = \min(f(p),g(p))
+
+        .. code-block::
+            :caption: Example: Union between a cyan sphere and a magenta box
+
+                input: Sphere(1,'#2ff') + Box(.7,'#f2f').isometric()
+                output:
+
+        .. image:: ../source/_static/add.png
+            :scale: 60 %
+            :alt: alternate text
+            :align: center
+
+        - if g is a string formatted as '(dx,dy,dz)': Translation of the Shape f with displacement in the x, y and z axes given by dx,dy,dz respectively.
+
+        The translation is computed as:
+
+        .. math::
+            (f + (dx,dy,dz))(p) = f(p+(dx,dy,dz))
+
+        .. code-block::
+            :caption: Example: Sphere translated .9 units in the x direction, 0 units in the y direction, 0 units in the z direction
+
+                input: Sphere(.5) + '(.9,0,0)'
+                output:
+
+        .. image:: ../source/_static/translation.png
+            :scale: 60 %
+            :alt: alternate text
+            :align: center
+
+
+        :param other: A Shape expressed as a SDF
+        :type other: Shape
+        :return: Union between 'self' and 'other'
+        :rtype: Shape
+
+
+        """
+
+        if isinstance(o, Iterable):
+            o = str(o)
 
         if isinstance(o, str):
             if o.startswith("(") and o.endswith(")"):
-                sdf = self.augment_locals(f"self(p+ti.Vector(list({o})),t)")
-                color = self.augment_locals(
-                    f"self.color(p+ti.Vector(list({o})),t)")
+                # Translation (syntax: shape + '(1,2,3)')
+                sdf = self.augment_locals(f"self(p-ti.Vector(list({o})),t)")
+                color = self.augment_locals(f"self.color(p+ti.Vector(list({o})),t)")
+            elif any([o.startswith(f"d{axis}") for axis in "xyz"]):
+                # Translation (syntax: shape + 'dx 1')
+                # Get axis name
+                axis = o[1]
+                # Get distance
+                d = o.split(f"d{axis}")[1]
+                # Build distance vector
+                if axis == "x":
+                    dxyz = f"({d},0,0)"
+                elif axis == "y":
+                    dxyz = f"(0,{d},0)"
+                else:
+                    dxyz = f"(0,0,{d})"
+                # Update sdf and color functions
+                sdf = self.augment_locals(f"self(p-ti.Vector(list({dxyz})),t)")
+                color = self.augment_locals(f"self.color(p+ti.Vector(list({dxyz})),t)")
+
+            elif any([o.startswith(f"r{axis}") for axis in "xyz"]):
+                # Rotation around axis (syntax: shape + 'rx pi/4')
+                # Get axis name
+                axis = o[1]
+                # Get rotation angle
+                angle = o.split(f"r{axis}")[1]
+                # Return rotated version of 'self
+                return self.rotate(angle, axis)
             else:
+                # Displacement (syntax: shape + '.1*sin(x)')
                 sdf = self.augment_locals(f"self(p,t) - {o}")
                 color = self.augment_locals(f"self.color(p,t) - {o}")
-        elif isinstance(o, Union[float, int]):
+
+        elif isinstance(o, Number):
 
             @ti.func
             def sdf(p, t):
                 return self(p, t) - o
 
-        elif isinstance(o, Iterable):
-            if type(o) != ti.Vector:
-                o = ti.Vector(o)
-
-            @ti.func
-            def sdf(p, t):
-                return self(p - o, t)
-
-            @ti.func
-            def color(p, t):
-                return self.color(p - o, t)
-
-        else:
+        elif isinstance(o, Shape):
 
             @ti.func
             def sdf(p, t):
@@ -545,6 +626,9 @@ class Shape:
             def color(p, t):
                 return self.color(p, t) if (self(p, t) < o(p, t)) else o.color(p, t)
 
+        else:
+            raise Exception(f"You cannot add a Shape with a '{type(o)}'")
+
         return Shape(
             sdf,
             color,
@@ -552,6 +636,32 @@ class Shape:
         )
 
     def __sub__(self, o):
+        """
+
+        Computes the difference between two Shapes, f and g, expressed as Signed Distance Functions (SDF).
+
+        The difference is computed as:
+
+        .. math::
+            (f - g)(p) = \max(f(p),-g(p))
+
+        :param other: A Shape expressed as a SDF
+        :type other: Shape
+        :return: Intersection between 'self' and 'other'
+        :rtype: Shape
+
+        .. code-block::
+            :caption: Example: Difference between sphere and a half-plane
+
+                input: Box(.75).isometric() - Sphere(.9)
+                output:
+
+        .. image:: ../source/_static/sub.png
+            :scale: 60 %
+            :alt: alternate text
+            :align: center
+
+        """
 
         if isinstance(o, str):
             sdf = self.augment_locals(f"self(p,t) + {o}")
@@ -592,15 +702,41 @@ class Shape:
         )
 
     def __mul__(self, o):
+        """
+
+        Computes the intersection between two Shapes, f and g, expressed as Signed Distance Functions (SDF).
+
+        The intersection is computed as:
+
+        .. math::
+            (f \& g)(p) = \min(f(p),g(p))
+
+        :param other: A Shape expressed as a SDF
+        :type other: Shape
+        :return: Intersection between 'self' and 'other'
+        :rtype: Shape
+
+        .. code-block::
+            :caption: Example: Intersection between sphere and a half-plane
+
+                input: Sphere(.15) & Shape('x')
+                output:
+
+        .. image:: ../source/_static/and.png
+            :scale: 60 %
+            :alt: alternate text
+            :align: center
+
+        """
 
         if isinstance(o, str):
             sdf = self.augment_locals(f"self(p/{o},t)")
             color = self.color
-        elif isinstance(o, Union[float, int]):
+        elif isinstance(o, Number):
 
             @ti.func
             def sdf(p, t):
-                return self(p / o, t)
+                return o * self(p / o, t)
 
             color = self.color
         elif isinstance(o, Iterable):
@@ -621,31 +757,10 @@ class Shape:
             **{k: v for k, v in self.__dict__.items() if k not in ["sdf", "color"]},
         )
 
-    def __pow__(self, o):
-
-        @ti.func
-        def sdf(p, t):
-            return self(p, t)**o
-
-        color = self.color
-
-        return Shape(
-            sdf,
-            color,
-            **{k: v for k, v in self.__dict__.items() if k not in ["sdf", "color"]},
-        )
-
-    def __truediv__(self, o: float):
-        @ti.func
-        def sdf(p, t):
-            return self(p * o, t) / o
-
-        return Shape(sdf, color=self.color)
-
-    def __or__(self, o):
+    def __truediv__(self, o: Number):
         """
 
-        Computes the intersection between two shapes, f and g, expressed as Signed Distance Functions (SDF).
+        Computes the intersection between two Shapes, f and g, expressed as Signed Distance Functions (SDF).
 
         The intersection is computed as:
 
@@ -663,7 +778,41 @@ class Shape:
                 input: Sphere(.15) & Shape('x')
                 output:
 
-        .. image:: ../../docs/source/_static/and.png
+        .. image:: ../source/_static/and.png
+            :scale: 60 %
+            :alt: alternate text
+            :align: center
+
+        """
+
+        @ti.func
+        def sdf(p, t):
+            return self(p * o, t) / o
+
+        return Shape(sdf, color=self.color)
+
+    def __or__(self, o):
+        """
+
+        Applies transformation to input coordinates.
+
+        The intersection is computed as:
+
+        .. math::
+            (g | f)(p) = f(g(p))
+
+        :param other: A Shape expressed as a SDF
+        :type other: Shape
+        :return: SDF applied to transformed input coordinates
+        :rtype: Shape
+
+        .. code-block::
+            :caption: Example: Applying the input coordinates transformation (x,y,z) -> (x+.25*cos(3*y),y+.25*sin(3*x),z) to a magenta boxframe
+
+                input: '(x+.25*cos(3*y),y+.25*sin(3*x),z)' | BoxFrame(.9,.1).isometric()
+                output:
+
+        .. image:: ../source/_static/or.png
             :scale: 60 %
             :alt: alternate text
             :align: center
@@ -675,7 +824,7 @@ class Shape:
         if isinstance(o, str):
             sdf = self.augment_locals(f"{o.replace('dist','self(p,t)')}")
             color = self.color
-        #else:
+        # else:
         #    def sdf(p, t):
         #        return max(self.sdf(p, t), o.sdf(p, t))
         #    def color(p, t):
@@ -690,7 +839,7 @@ class Shape:
     def __ror__(self, o):
         """
 
-        Computes the intersection between two shapes, f and g, expressed as Signed Distance Functions (SDF).
+        Computes the intersection between two Shapes, f and g, expressed as Signed Distance Functions (SDF).
 
         The intersection is computed as:
 
@@ -708,7 +857,7 @@ class Shape:
                 input: Sphere(.15) & Shape('x')
                 output:
 
-        .. image:: ../../docs/source/_static/and.png
+        .. image:: ../source/_static/and.png
             :scale: 60 %
             :alt: alternate text
             :align: center
@@ -718,14 +867,15 @@ class Shape:
         # sdf,color = self.sdf, self.color
 
         if isinstance(o, str):
-            #sdf = self.augment_locals(f"")
-            def sdf_(p,t):
-                x,y,z = p
+            # sdf = self.augment_locals(f"")
+            def sdf_(p, t):
+                x, y, z = p
                 p = ti.Vector(eval(o))
-                return self.sdf(p,t)
+                return self.sdf(p, t)
+
             sdf = sdf_
             color = self.color
-        #else:
+        # else:
         #    def sdf(p, t):
         #        return max(self.sdf(p, t), o.sdf(p, t))
         #    def color(p, t):
@@ -738,8 +888,53 @@ class Shape:
         )
 
     # SDF operations
-    
+
     def smooth_union(self, o, k=0.5):
+        """
+
+        Computes the smooth union of two Shapes, f and g.
+
+        The union is computed as:
+
+        .. math::
+            d_1 = o(g,t)
+
+            d_2 = f(p,t)
+
+            h = clamp(0.5 + 0.5 (d_2 - d_1) k^{-1}, 0, 1)
+
+            (f \ll su(k) \gg g)(p) = d_2 h + d_1 (1-h) - k h (1 - h)
+
+        .. code-block::
+            :caption: Example: Smooth union between a cyan sphere and a magenta box
+
+                x = Sphere(.25,'#5ff') + '(+.5,0,0)'
+                y = Box(.25,'#f5f').isometric() + '(-.5,0,0)'
+
+                input: x <<su(.5)>> y
+                output:
+
+        .. code-block::
+            :caption: Alternative syntax:
+
+                x = Sphere(.25,'#5ff') + '(+.5,0,0)'
+                y = Box(.25,'#f5f').isometric() + '(-.5,0,0)'
+
+                input: x.smooth_union(y,.5)
+                output:
+
+        .. image:: ../source/_static/su.png
+            :scale: 60 %
+            :alt: alternate text
+            :align: center
+
+        :param o: _description_
+        :type o: _type_
+        :param k: _description_, defaults to 0.5
+        :type k: float, optional
+        :return: _description_
+        :rtype: _type_
+        """
 
         if type(k) != str:
             k = str(k)
@@ -784,6 +979,33 @@ class Shape:
         return Shape(sdf, color=self.color)
 
     def twist(self, k, axis="y"):
+        """
+
+        Twists a shape along the y axis.
+
+        The twist is computed as:
+
+        .. math::
+            twist(f,k) = f((\cos(k y) x - \sin(k y) z, \sin(k y) x + \cos(k y) z, y))
+
+        .. code-block::
+            :caption: Example: Twisted isometric box
+
+                input: Box(.5).isometric().twist(4)
+                output:
+
+        .. image:: ../source/_static/twist.png
+            :scale: 60 %
+            :alt: alternate text
+            :align: center
+
+        :param o: _description_
+        :type o: _type_
+        :param k: _description_, defaults to 0.5
+        :type k: float, optional
+        :return: _description_
+        :rtype: _type_
+        """
 
         if type(k) != str:
             k = str(k)
@@ -818,7 +1040,7 @@ class Shape:
                 q = ti.Vector([c_ * p.x - s_ * p.z, s_ * p.x + c_ * p.z, p.y])
                 return self.color(q, t)
 
-        if axis == "z":
+        elif axis == "z":
             # @ti.func
             def sdf(p, t):
                 c_ = ti.cos(eval(k) * p.z)
@@ -898,6 +1120,28 @@ class Shape:
         return Shape(sdf, color)
 
     def repeat(self, c, l):
+        """
+
+        Repeats the Shape along the x,y,z axes with displacement given by **c** and bounds given by **l**.
+
+        .. code-block::
+            :caption: Example: Using 'repeat()' to create a 3x3x3 3D grid of spheres
+
+                input: x = Sphere(.5,'#f0c04c').repeat((.9,.9,.9),(1,1,1)).isometric()
+                output:
+
+        .. image:: ../source/_static/repeat.png
+            :scale: 60 %
+            :alt: alternate text
+            :align: center
+
+        :param o: _description_
+        :type o: _type_
+        :param k: _description_, defaults to 0.5
+        :type k: float, optional
+        :return: _description_
+        :rtype: _type_
+        """
 
         # if type(c) != ti.Vector: c = ti.Vector(c);
         # if type(l) != ti.Vector: l = ti.Vector(l);
@@ -927,8 +1171,7 @@ class Shape:
 
         return Shape(
             sdf=self.augment_locals(f'self.sdf({rot}(p, eval("{angle}")), t)'),
-            color=self.augment_locals(
-                f'self.color({rot}(p, eval("{angle}")), t)'),
+            color=self.augment_locals(f'self.color({rot}(p, eval("{angle}")), t)'),
             texture=lambda i, x, y: self.texture(i, *rot(p, eval(angle)).xy),
             **{
                 k: v
@@ -940,7 +1183,29 @@ class Shape:
     def isometric(self):
         return self.rotate(pi / 4, "x").rotate(atan2(1, sqrt(2)), "y")
 
-    def onion(self, n=60, thickness=0.4, n2 = '10'):
+    def onion(self, n=60, thickness=0.4, n2="10"):
+        """
+
+        Slices the Shape concentrically, creating an "onion" Shape.
+
+        .. code-block::
+            :caption: Example: Creating a "sliced onion" from a sphere
+
+                input: (Sphere(1).onion(60,.2) & Shape('z-.2')).isometric()
+                output:
+
+        .. image:: ../source/_static/onion.png
+            :scale: 60 %
+            :alt: alternate text
+            :align: center
+
+        :param o: _description_
+        :type o: _type_
+        :param k: _description_, defaults to 0.5
+        :type k: float, optional
+        :return: _description_
+        :rtype: _type_
+        """
 
         if n2 is None:
             n2 = n
@@ -952,16 +1217,18 @@ class Shape:
         if type(thickness) != str:
             thickness = str(thickness)
 
+        n, n2, thickness = map(self.augment_locals, [n, n2, thickness])
+
         @ti.func
         def sdf(p, t):
-            f = self(p, t)**2 * eval(n2)
+            f = self(p, t) * n2(p, t)
             i = int(f)
             if f < 0:
                 if i % 2 == 1:
                     f -= ti.floor(f)
                 else:
                     f = ti.floor(f) + 1 - f
-            f = (f - eval(thickness)) / eval(n)
+            f = (f - thickness(p, t)) / n(p, t)
             return f
 
         return Shape(
@@ -971,10 +1238,9 @@ class Shape:
         )
 
     def make_nested(self):
-        
         @ti.func
         def sdf(p, t):
-            f = self.sdf(p,t)
+            f = self.sdf(p, t)
             f = f**2 * 10
             i = int(f)
             if f < 0:
@@ -984,10 +1250,38 @@ class Shape:
                     f = ti.floor(f) + 1 - f
             f = (f - 0.4) / 60
             return f
-        
+
         return Shape(
             sdf,
             self.color,
             **{k: v for k, v in self.__dict__.items() if k not in ["sdf", "color"]},
         )
-    
+
+    def with_background(self, background = '#fff', background_distance = 2):
+        return Shape(f"z+{background_distance}", color=background) + self
+
+
+
+def su(k=1):
+    @infix
+    def su_(x, y):
+        return x.smooth_union(y, k=k)
+
+    return su_
+
+
+def si(k=1):
+    @infix
+    def si_(x, y):
+        return x.smooth_intersection(y, k=k)
+
+    return si_
+
+
+def sd(k=1):
+    @infix
+    def sd_(x, y):
+        return x.smooth_difference(y, k=k)
+
+    return sd_
+

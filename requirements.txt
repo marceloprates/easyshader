@@ -6,3 +6,7 @@ opencv-python==4.6.0.66
 scikit-learn==1.1.2
 scikit-image==0.19.3
 shapely==1.8.5
+numpy==1.26.4
+trimesh==4.5.1
+infix==1.2
+open3d==0.16.0

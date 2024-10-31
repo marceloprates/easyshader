@@ -1,5 +1,6 @@
 import taichi as ti
-import taichi_glsl as tg
+
+# import taichi_glsl as tg
 import numpy as np
 
 
@@ -84,6 +85,16 @@ def ϕ(p):
     return ϕ
 
 
+@ti.func
+def r(p):
+    return p.norm()
+
+
+@ti.func
+def round(x):
+    return ti.cast(x, ti.i32)
+
+
 def smooth_union(a, b, k):
     @ti.func
     def smooth_union_(p, t):
@@ -135,9 +146,10 @@ def interpolate(a, b, k):
 
 
 def union(*shapes):
-    return sum(shapes, start=Shape())
+    return sum(shapes[1:], start=shapes[0])
 
 
+"""
 def su(k=0.5):
     return Infix(lambda x, y: x.smooth_union(y, k))
 
@@ -148,3 +160,4 @@ def sd(k=0.5):
 
 def si(k=0.5):
     return Infix(lambda x, y: x.smooth_intersection(y, k))
+"""

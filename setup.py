@@ -9,7 +9,7 @@ os.system("pip install git+https://github.com/abey79/vsketch/")
 
 setup(
     name="easyshader",
-    version="v0.1.",
+    version="v1.0",
     description="",
     # long_description=parent_dir.joinpath("README.md").read_text(),
     long_description_content_type="text/markdown",

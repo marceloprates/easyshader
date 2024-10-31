@@ -1,26 +1,24 @@
-from turtle import Shape
-import taichi as ti
+from typing import Iterable, List, Tuple, Union
+from numbers import Number
+
 import numpy as np
-from typing import Iterable
+import taichi as ti
+from matplotlib.colors import hex2color
 from numpy import pi as π
-
-# from .shape import Shape, Box
 from taichi import *
-from taichi_glsl.sampling import sample, bilerp
-from PIL import Image
-import os
-import subprocess
-import IPython
-import glob
-from matplotlib.colors import hex2color, rgb2hex
-import cv2
 
-def hex2numpy(c):
+from .transformations import rotate_x, rotate_y, rotate_z
+
+# Define "3D Vector" type
+Vec3D = ti.types.vector(3, ti.f32)
+
+
+def hex2numpy(c: str) -> np.ndarray:
     return np.array(hex2color(c))
 
 
 @ti.pyfunc
-def get_palette(palette):
+def get_palette(palette) -> ti.Vector.field:
     palette_field = ti.Vector.field(3, dtype=ti.f32, shape=(len(palette), 1))
     palette_field.from_numpy(
         np.array([[hex2numpy(p)] for p in palette], dtype=np.float32)
@@ -29,44 +27,72 @@ def get_palette(palette):
 
 
 @ti.data_oriented
-class Rendering:
-    
+class Light:
     def __init__(
         self,
-        scene=[],
-        iterations=200,
-        resolution=(400, 400),
-        frames=20,
-        max_ray_depth=10,
-        max_raymarch_steps=100,
-        eps=1e-6,
-        inf=1e10,
-        fov=0.2,
-        dist_limit=100.0,
-        camera_pos=[0, 0, 10],
-        light_pos=(0, 1, 1),
-        #light_normal=(0, -1, 0),
-        light_normal = None,
-        light_radius=3.0,
-        palette=["#000", "#fff"],
-        use_cel_shading=False,
-        animate=False,
-        color_buffer=None,
-        palette_field=None,
-    ):
-        """
-        Args:
-            resolution (tuple, optional): Rendering resolution in pixels. Defaults to (500,500).
-            max_ray_depth (int, optional): Maximum ray depth. Defaults to 6.
-            eps (_type_, optional): epsilon for SDF distance. Defaults to 1e-6.
-            inf (_type_, optional): inf. Defaults to 1e10.
-            fov (float, optional): Field-of-View. Defaults to 0.2.
-            dist_limit (int, optional): Distance limit. Defaults to 100.
-            camera_pos (list, optional): Camera position. Defaults to [0., 0., 5.].
-            light_pos (list, optional): Light position. Defaults to [0., 0., 1.].
-            light_normal (list, optional): Light direction. Defaults to [0., 0, -1.].
-            light_radius (float, optional): Light radius. Defaults to 3.0.
-        """
+        pos: Union[Tuple[float, float, float], ti.Vector] = (1, 1, 1),
+        normal: Union[None, Tuple[float, float, float], ti.Vector] = None,
+        radius: float = 5.0,
+        translations: List[str] = [],
+    ) -> None:
+        if type(pos) in [ti.Vector, ti.Matrix]:
+            pos = list(pos.to_numpy())
+        if type(normal) in [ti.Vector, ti.Matrix]:
+            normal = list(normal.to_numpy())
+
+        self.pos = ti.Vector(pos)
+        self.normal = -self.pos.normalized() if normal is None else ti.Vector(normal)
+        self.radius = radius
+        self.translations = translations
+
+    def __add__(self, other: str) -> "Light":
+        return Light(
+            self.pos, self.normal, self.radius, translations=self.translations + [other]
+        )
+
+    def apply_transformations(self, t: float) -> "Light":
+        pos = self.pos
+        for translation in self.translations:
+            pos += ti.Vector(eval(translation))
+        return Light(
+            pos,
+            self.normal,
+            self.radius,
+        )
+
+
+@ti.data_oriented
+class Rendering:
+    def __init__(
+        self,
+        scene,
+        iterations: int = 200,
+        width: Union[None, int] = None,
+        aspect_ratio: Union[float, str] = 1,
+        resolution: Tuple[int, int] = (400, 400),
+        frames: int = 20,
+        framerate: int = 30,
+        max_ray_depth: int = 10,
+        max_raymarch_steps: int = 100,
+        eps: float = 1e-6,
+        inf: float = 1e10,
+        fov: float = 0.2,
+        dist_limit: float = 100.0,
+        camera_pos: List[float] = [0, 0, 10],
+        lights: List[Light] = [Light(pos=(0, 1, 1), radius=3.0)],
+        palette: List[str] = ["#000", "#fff"],
+        use_cel_shading: bool = False,
+        animate: bool = False,
+        color_buffer: Union[None, ti.Vector.field] = None,
+        palette_field: Union[None, ti.Vector.field] = None,
+    ) -> None:
+
+        if width is not None:
+            if aspect_ratio == "A4":
+                aspect_ratio = 8.3 / 11.7
+            elif aspect_ratio == "A4_r":
+                aspect_ratio = 11.7 / 8.3
+            resolution = (width, int(aspect_ratio * width))
 
         # Set attributes
         self.__dict__.update(
@@ -77,7 +103,8 @@ class Rendering:
                         if type(v) != ti.Vector
                         else v
                     )
-                    if isinstance(v, Iterable) and k not in ["scene", "resolution"]
+                    if isinstance(v, Iterable)
+                    and k not in ["scene", "resolution", "lights"]
                     else v
                 )
                 for k, v in locals().items()
@@ -85,9 +112,6 @@ class Rendering:
             }
         )
 
-        if self.light_normal is None:
-            self.light_normal = -self.light_pos
-        
         # Init palette field
         self.palette_hex = palette
         self.palette_field = (
@@ -100,7 +124,9 @@ class Rendering:
         else:
             self.color_buffer = ti.Vector.field(3, dtype=ti.f32, shape=resolution)
 
-        # Init depth map
+        # Init depth, depth map
+        self.depth = ti.field(ti.f32, shape=resolution)
+        # self.depth.from_numpy(np.inf*np.ones(resolution, dtype = np.float32))
         self.depth_map = ti.field(ti.f32, shape=resolution)
 
         # Init iterations count
@@ -109,35 +135,24 @@ class Rendering:
         # Init time
         self.time = 0.0
 
-        self.scene = self.scene[0]
+    def render(self, t: float):
+        """
+        Render scene with 'self.iterations' raymarching iterations.
 
-    def save(self, filename, display=False):
-        # Render
-        for i in range(self.max_iterations):
-            self.render(0)
-        # Transform image
-        img = Image.fromarray(
-            (255 * self.result().transpose((1, 0, 2))[::-1, :, :]).astype(np.uint8)
-        )
-        # Save render
-        img.save(f"{filename}.png")
-        # Display render
-        if display:
-            IPython.display.display(
-                IPython.display.Image(
-                    data=open(f"{filename}.png", "rb").read(), format="png"
-                )
-            )
-
-    def render(self, t=0):
+        :param t: Time parameter (between 0 and 2pi)
+        :type t: float
+        """
         for i in range(self.iterations):
-            self._render(t)
+            self._render(float(t))
         self.iteration += 1
 
     @ti.kernel
     def _render(self, t: ti.f32):
         """
-        Render scene
+        Render scene with one raymarching iteration.
+
+        :param t: Time parameter (between 0 and 2pi)
+        :type t: ti.f32
         """
 
         # Iterate over camera coordinates (u,v)
@@ -169,6 +184,7 @@ class Rendering:
 
             it = 0
             first_closest = 0.0
+            closest_ = np.inf
             while depth < self.max_ray_depth:
                 it += 1
                 # Cast light ray and get:
@@ -179,36 +195,48 @@ class Rendering:
                 if it == 1:
                     first_closest = closest
 
+                closest_ = min(closest_, closest)
+
                 depth += 1
                 # Intersect light
-                if self.intersect_light(pos, d, t) < closest:
+                light_dist = self.intersect_light(pos, d, t)
+                if light_dist < closest:
                     hit_light = 1.0
-                    depth = self.max_ray_depth
+                    break
                 else:
                     hit_pos = pos + closest * d
                     if normal.norm_sqr() != 0:
-                        d = self.out_dir(normal, hit_pos, t)
+                        d = self.out_dir(
+                            normal, hit_pos, d, self.camera_pos, self.lights[0].pos, t
+                        )
                         pos = hit_pos + 5e-2 * d
                         throughput *= c
                     else:
                         depth = self.max_ray_depth
 
             self.color_buffer[u, v] += throughput * hit_light
+            self.depth[u, v] = first_closest  # min(self.depth[u, v], closest_)
             self.depth_map[u, v] = first_closest < self.inf
 
     @ti.func
-    def next_hit(self, pos, d, t):
-        """_summary_
+    def next_hit(self, pos: Vec3D, d: Vec3D, t: ti.f32):
+        """
+        Given a (x,y,z) position 'pos', a ray direction 'd' and time 't', use raymarching to compute:
+        - 'closest': Closest point to the surface
+        - 'normal': Normal direction to the surface
+        - 'color': Color at hit position
 
-        Args:
-            pos (_type_): _description_
-            d (_type_): _description_
-
-        Returns:
-            _type_: _description_
+        :param pos: Position in 3D (x,y,z) space.
+        :type pos: Vec3D
+        :param d: Ray direction vector.
+        :type d: Vec3D
+        :param t: Time parameter (between 0 and 2pi).
+        :type t: ti.f32
+        :return: 1. Closest point to the surface; 2. Normal direction to the surface; 3. Color at hit position
+        :rtype: (ti.f32, Vec3D, Vec3D)
         """
 
-        # Init:
+        # Initialize:
         # 1. closest (distance to surface)
         # 2. normal (surface normal)
         # 3. color (color at hit position)
@@ -233,85 +261,128 @@ class Rendering:
         return closest, normal, color
 
     @ti.func
-    def ray_march(self, p, d, t):
+    def ray_march(self, p: Vec3D, d: Vec3D, t: ti.f32) -> ti.f32:
+        """
+        Use raymarching to determine the distance between the (x,y,z) position 'p' and the object surface in the ray direction 'd'.
+
+        :param p: Position in 3D (x,y,z) space.
+        :type p: Vec3D
+        :param d: Ray direction vector.
+        :type d: Vec3D
+        :param t: Time parameter (between 0 and 2pi).
+        :type t: ti.f32
+        :return: Raymarch distance.
+        :rtype: ti.f32
+        """
+
         i, dist = 0, 0.0
-        while (
-            (dist < self.inf)
-            and (i < self.max_raymarch_steps)
-            and (self.sdf(p + dist * d, t) > 1e-6)
-        ):
-            dist += self.sdf(p + dist * d, t)
+        sdf_ = self.sdf(p + dist * d, t)
+        while (dist < self.inf) and (i < self.max_raymarch_steps) and (sdf_ > 1e-6):
+            dist += sdf_
+            sdf_ = self.sdf(p + dist * d, t)
             i += 1
 
         return dist
 
     @ti.func
-    def sdf_normal(self, p, t):
-        d = 1e-3
+    def sdf_normal(self, p: Vec3D, t: ti.f32) -> Vec3D:
+        d = 1e-6
         n = ti.Vector([0.0, 0.0, 0.0])
         sdf_center = self.sdf(p, t)
         for i in ti.static(range(3)):
-            inc = p
+            inc = 1.0 * p
             inc[i] += d
             n[i] = (1 / d) * (self.sdf(inc, t) - sdf_center)
         return n.normalized()
 
     @ti.func
-    def sdf(self, p, t):
-        geometry = np.inf
-        geometry = min(geometry, self.scene.sdf(p, t))
-        return geometry
+    def sdf(self, p: Vec3D, t: ti.f32) -> ti.f32:
+        return min(np.inf, self.scene.sdf(p, t))
 
     @ti.func
-    def intersect_light(self, pos, d, t):
-        """_summary_
+    def intersect_light(self, pos: Vec3D, d: Vec3D, t: ti.f32) -> ti.f32:
+        """
+        Compute the distance to the light source if the ray intersects it.
 
         Args:
-            pos (_type_): _description_
-            d (_type_): _description_
+            pos (Vec3D): The starting position of the ray.
+            d (Vec3D): The direction of the ray.
+            t (ti.f32): Time parameter (between 0 and 2pi).
 
         Returns:
-            _type_: _description_
+            ti.f32: Distance to the light source if intersected, otherwise a large value.
         """
-        # Compute dot product between ray direction and light normal
-        dot = -d.dot(self.light_normal)
-        # Compute distance between light source and camera
-        dist = d.dot(self.light_pos - pos)
+        light = self.lights[0]
+        dot = -d.dot(light.normal)
+        dist = d.dot(light.pos - pos)
         dist_to_light = self.inf
+
         if dot > 0 and dist > 0:
             D = dist / dot
-            dist_to_center = (self.light_pos - (pos + D * d)).norm_sqr()
-            if dist_to_center < self.light_radius**2:
+            dist_to_center = (light.pos - (pos + D * d)).norm_sqr()
+            if dist_to_center < light.radius**2:
                 dist_to_light = D
+
         return dist_to_light
 
     @ti.func
-    def out_dir(self, n, p, t):
+    def out_dir(
+        self,
+        n: Vec3D,
+        p: Vec3D,
+        d: Vec3D,
+        camera_pos: Vec3D,
+        light_pos: Vec3D,
+        t: ti.f32,
+    ) -> Vec3D:
+
+        d = d.normalized()
+        n = n.normalized()
+
         u = ti.Vector([1.0, 0.0, 0.0])
         if abs(n[1]) < 1 - self.eps:
             u = n.cross(ti.Vector([0.0, 1.0, 0.0])).normalized()
         v = n.cross(u)
-        phi = 2 * π * ti.random()
+
+        phi = (1 / 1) * 2 * π * ti.random()
         ay = ti.sqrt(ti.random())
         ax = ti.sqrt(1 - ay**2)
-        out = (
-            n
-            if self.use_cel_shading
-            else ax * (ti.cos(phi) * u + ti.sin(phi) * v) + ay * n
-        )
+
+        N = n  # Normal vector
+        L = (p - light_pos).normalized()  # Point light source
+        V = (p - camera_pos).normalized()  # Viewing direction
+        R = (2 * L.dot(N)) * N - L  # Ray direction
+        R = R.normalized()
+
+        out = n
+        if self.use_cel_shading:
+            out = n
+        elif False:
+            diffuse = ti.cos(phi) * u + ti.sin(phi) * v + n
+            # diffuse = N.dot(L)
+            # specular = d - 2 * d.dot(n) * n
+            specular = R.cross(V) ** 1
+            out = (diffuse + specular) / 2
+            out = specular
+        else:
+            out = ax * ti.cos(phi) * u + ti.sin(phi) * v + ay * n
+
         return out
 
-    def result(self):
-
-        img = self.color_buffer.to_numpy() * (1 / (self.iteration + 1))
+    def result(self, depth: bool = False) -> np.ndarray:
+        # Compute "img" as the color buffer normalized by the number of iterations
+        img = self.color_buffer.to_numpy() * (1 / (self.iterations + 1))
+        # ...
         img = img / img.mean() * 0.24
         img = np.clip(np.sqrt(img), 0, 1)
+        # img = np.clip(img,0,1)
 
-        alpha = self.depth_map.to_numpy()
-        # alpha = cv2.blur(alpha, (3, 3))
-        # alpha = cv2.erode(alpha, np.ones((3, 3), np.uint8), iterations=1)
-        alpha = np.expand_dims(alpha, -1)
-
-        img = np.concatenate([img, alpha], -1)
+        if depth:
+            img = np.expand_dims(self.depth.to_numpy(), -1)
+            img = img.repeat(4, axis=-1)
+        else:
+            # Compute and add alpha channel
+            alpha = np.expand_dims(self.depth_map.to_numpy(), -1)
+            img = np.concatenate([img, alpha], -1)
 
         return img
