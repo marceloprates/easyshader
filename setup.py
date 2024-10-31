@@ -4,16 +4,13 @@ import os
 
 parent_dir = Path(__file__).resolve().parent
 
-# Install vsketch
-os.system("pip install git+https://github.com/abey79/vsketch/")
 
 setup(
     name="easyshader",
-    version="v1.0",
+    version="v0.1",
     description="",
     # long_description=parent_dir.joinpath("README.md").read_text(),
-    long_description_content_type="text/markdown",
-    # url="https://github.com/marceloprates/prettymaps",
+    # long_description_content_type="text/markdown",
     author="Marcelo Prates",
     author_email="marceloorp@gmail.com",
     # license="MIT License",

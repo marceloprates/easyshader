@@ -102,7 +102,7 @@ for obj in [Sphere(1), Cyllinder(1,1), Cone(1,2), Torus(1,.2), Box(1), BoxFrame(
 
 
 ```python
-Icosahedron(1).to_mesh(simplify = 20)
+Icosahedron(1).to_mesh(simplify = 20, save_path='icosahedron.ply')
 ```
 
 

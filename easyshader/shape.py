@@ -43,6 +43,7 @@ from scipy.ndimage import gaussian_filter
 import open3d as o3d
 from .camera import Camera
 
+
 @ti.data_oriented
 class Shape:
     def __init__(
@@ -243,22 +244,49 @@ class Shape:
             t += 2 * π / rendering.frames
         gui_.close()
 
-    def render(self, t=0, save=False, depth=False, background = '#aaa', background_distance = 2, **kwargs):
-        img = self.render_static(t=t, depth=depth, background = background, background_distance = background_distance, **kwargs)
+    def render(
+        self,
+        t=0,
+        save=False,
+        depth=False,
+        background="#aaa",
+        background_distance=2,
+        **kwargs,
+    ):
+        img = self.render_static(
+            t=t,
+            depth=depth,
+            background=background,
+            background_distance=background_distance,
+            **kwargs,
+        )
         if save:
             img.save(save)
         return img
 
-    def render_static(self, t=0, save=False, lights=[Light()], depth=False, background_distance = 2, background = None, **camera_kwargs):
+    def render_static(
+        self,
+        t=0,
+        save=False,
+        lights=[Light()],
+        depth=False,
+        background_distance=2,
+        background=None,
+        **camera_kwargs,
+    ):
 
-        camera = Camera(camera_pos=(0,0,8))
+        camera = Camera(camera_pos=(0, 0, 8))
 
         # Overwrite camera rendering_kwargs with "camera_kwargs" keyword arguments
         for arg, value in camera_kwargs.items():
             camera.rendering_kwargs[arg] = value
 
         return camera.snap(
-            (Shape(f"z+{background_distance}", background) + self) if background is not None else self,
+            (
+                (Shape(f"z+{background_distance}", background) + self)
+                if background is not None
+                else self
+            ),
             lights=lights,
             t=t,
             depth=depth,
@@ -268,8 +296,8 @@ class Shape:
         self,
         camera=Camera(),
         lights=[Light()],
-        background='#fff',
-        background_distance = 2,
+        background="#fff",
+        background_distance=2,
         save=False,
         resume=False,
         frames=None,
@@ -284,9 +312,7 @@ class Shape:
         for arg in ["frames", "framerate"]:
             if eval(arg) is not None:
                 camera.rendering_kwargs[arg] = eval(arg)
-        background = Shape(
-            f"z+{background_distance}", background
-        )
+        background = Shape(f"z+{background_distance}", background)
         return camera.record(
             (background + self) if background is not None else self,
             lights=lights,
@@ -371,6 +397,7 @@ class Shape:
 
         return color_layers
 
+    """
     def pen_plotter(self, n_colors=2, scale=1, save=None, rendering_kwargs=None):
 
         self.rendering_kwargs = rendering_kwargs
@@ -395,8 +422,16 @@ class Shape:
                 vsk.vpype("linemerge linesimplify reloop linesort")
 
         MySketch().display()
+    """
 
-    def to_mesh(self, resolution=400, level=0.0, save_path="output.ply", preview=True, simplify = None):
+    def to_mesh(
+        self,
+        resolution=400,
+        level=0.0,
+        save_path="output.ply",
+        preview=True,
+        simplify=None,
+    ):
         """
         Generates a mesh using the marching cubes algorithm and saves it as an OBJ file.
 
@@ -428,7 +463,7 @@ class Shape:
 
         # Apply Gaussian smoothing to the SDF values
         sdf_np = sdf_values.to_numpy()
-        #sdf_smoothed = gaussian_filter(sdf_np, sigma=0.5)
+        # sdf_smoothed = gaussian_filter(sdf_np, sigma=0.5)
 
         # Use marching cubes to extract the mesh
         verts, faces, normals, values = marching_cubes(sdf_np, level=level)
@@ -1257,9 +1292,8 @@ class Shape:
             **{k: v for k, v in self.__dict__.items() if k not in ["sdf", "color"]},
         )
 
-    def with_background(self, background = '#fff', background_distance = 2):
+    def with_background(self, background="#fff", background_distance=2):
         return Shape(f"z+{background_distance}", color=background) + self
-
 
 
 def su(k=1):
@@ -1284,4 +1318,3 @@ def sd(k=1):
         return x.smooth_difference(y, k=k)
 
     return sd_
-
