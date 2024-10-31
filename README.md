@@ -11,16 +11,22 @@ Sphere(1)
 
 
     
-![png](README_files/examples_2_0.png)
+![png](README_files/README_2_0.png)
     
 
 
-# Use the "color" parameter to paint your object
+Use the "color" parameter to paint your object
 
 
 ```python
 Icosahedron(1,'#f55')
 ```
+
+
+    
+![png](README_files/README_4_0.png)
+    
+
 
 # You can choose from the following primitives:
 
@@ -46,49 +52,49 @@ for obj in [Sphere(1), Cyllinder(1,1), Cone(1,2), Torus(1,.2), Box(1), BoxFrame(
 
 
     
-![png](README_files/examples_6_0.png)
+![png](README_files/README_6_0.png)
     
 
 
 
     
-![png](README_files/examples_6_1.png)
+![png](README_files/README_6_1.png)
     
 
 
 
     
-![png](README_files/examples_6_2.png)
+![png](README_files/README_6_2.png)
     
 
 
 
     
-![png](README_files/examples_6_3.png)
+![png](README_files/README_6_3.png)
     
 
 
 
     
-![png](README_files/examples_6_4.png)
+![png](README_files/README_6_4.png)
     
 
 
 
     
-![png](README_files/examples_6_5.png)
+![png](README_files/README_6_5.png)
     
 
 
 
     
-![png](README_files/examples_6_6.png)
+![png](README_files/README_6_6.png)
     
 
 
 
     
-![png](README_files/examples_6_7.png)
+![png](README_files/README_6_7.png)
     
 
 
@@ -96,7 +102,7 @@ for obj in [Sphere(1), Cyllinder(1,1), Cone(1,2), Torus(1,.2), Box(1), BoxFrame(
 
 
 ```python
-Torus(1,.4).to_mesh(simplify = 500, save_path = 'torus.ply')
+Icosahedron(1).to_mesh(simplify = 20)
 ```
 
 
@@ -113,7 +119,7 @@ x
 
 
     
-![png](README_files/examples_11_0.png)
+![png](README_files/README_11_0.png)
     
 
 
@@ -126,7 +132,7 @@ BoxFrame(1,.1,'#0B4F6C') + Sphere(.5,'#B80C09')
 
 
     
-![png](README_files/examples_13_0.png)
+![png](README_files/README_13_0.png)
     
 
 
@@ -139,7 +145,7 @@ Box(1,'#0B4F6C') - Sphere(1.2)
 
 
     
-![png](README_files/examples_15_0.png)
+![png](README_files/README_15_0.png)
     
 
 
@@ -152,7 +158,7 @@ Icosahedron(1,'#0B4F6C') & Sphere(1.1)
 
 
     
-![png](README_files/examples_17_0.png)
+![png](README_files/README_17_0.png)
     
 
 
@@ -174,7 +180,7 @@ x
 
 
     
-![png](README_files/examples_19_0.png)
+![png](README_files/README_19_0.png)
     
 
 
@@ -191,7 +197,6 @@ x.animate(frames = 60, framerate = 15, iterations = 20)
 ```
 
 
-
     Animating..: 100%|██████████| 59/59 [00:55<00:00,  1.07it/s]
 
 
@@ -199,7 +204,7 @@ x.animate(frames = 60, framerate = 15, iterations = 20)
 
 
     
-![png](README_files/examples_21_2.png)
+![png](README_files/README_21_2.png)
     
 
 
