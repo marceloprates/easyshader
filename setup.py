@@ -7,10 +7,10 @@ parent_dir = Path(__file__).resolve().parent
 
 setup(
     name="easyshader",
-    version="v0.6",
+    version="v0.7",
     description="",
-    # long_description=parent_dir.joinpath("README.md").read_text(),
-    # long_description_content_type="text/markdown",
+    long_description=parent_dir.joinpath("README.md").read_text(),
+    long_description_content_type="text/markdown",
     author="Marcelo Prates",
     author_email="marceloorp@gmail.com",
     # license="MIT License",
