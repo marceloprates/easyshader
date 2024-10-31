@@ -1,6 +1,6 @@
 # easyshader
 
-![](pictures/ago17-white-balance.png)
+![](pictures/logo.png)
 
 Drawing with easyshader is very simple.
 
