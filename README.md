@@ -1,4 +1,6 @@
-# easyshader: Examples
+# easyshader
+
+![](pictures/ago17-white-balance.png)
 
 Drawing with easyshader is very simple.
 
