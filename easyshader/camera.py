@@ -12,16 +12,17 @@ import imageio
 
 from tqdm import tqdm
 
+
 @ti.data_oriented
 class Camera:
     def __init__(
         self,
-        iterations=50,
+        iterations=100,
         resolution=(400, 400),
         frames=20,
         framerate=30,
         max_ray_depth=10,
-        max_raymarch_steps=20,
+        max_raymarch_steps=50,
         eps=1e-6,
         inf=1e10,
         fov=0.2,
@@ -56,7 +57,6 @@ class Camera:
         # Create Rendering object
         rendering = Rendering(
             scene=(
-                #Shape("z+4", color=shape.background_color) + shape
                 shape.with_background(shape.background_color, 4)
                 if shape.background_color is not None
                 else shape
@@ -89,7 +89,6 @@ class Camera:
         depth=False,
         path=".tmp/output.gif",
     ):
-
 
         # Create folder
         directory = "/".join(path.split("/")[:-1]) if "/" in path else "."
@@ -130,7 +129,9 @@ class Camera:
 
         # Create animation
         images = []
-        for i, t in enumerate(tqdm(np.linspace(0, 2 * np.pi, frames)[:-1], desc="Animating..")):
+        for i, t in enumerate(
+            tqdm(np.linspace(0, 2 * np.pi, frames)[:-1], desc="Animating..")
+        ):
 
             if resume and (i <= last_frame):
                 continue
@@ -166,7 +167,7 @@ class Camera:
         vid_format = path.split(".")[-1]
 
         # Save GIF
-        imageio.mimsave(".tmp/output.gif", images, fps=framerate, loop = 0)
+        imageio.mimsave(".tmp/output.gif", images, fps=framerate, loop=0)
 
         if vid_format == "mp4":
             # Save MP4

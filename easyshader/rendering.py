@@ -15,20 +15,21 @@ from .light import Light
 # Define "3D Vector" type
 Vec3D = ti.types.vector(3, ti.f32)
 
+
 @ti.data_oriented
 class Rendering:
-    
+
     def __init__(
         self,
         scene,
-        iterations: int = 50,
+        iterations: int = 100,
         width: Union[None, int] = None,
         aspect_ratio: Union[float, str] = 1,
         resolution: Tuple[int, int] = (400, 400),
         frames: int = 20,
         framerate: int = 30,
         max_ray_depth: int = 10,
-        max_raymarch_steps: int = 20,
+        max_raymarch_steps: int = 50,
         eps: float = 1e-6,
         inf: float = 1e10,
         fov: float = 0.2,
@@ -54,7 +55,7 @@ class Rendering:
             {
                 k: (
                     (
-                        ti.Vector(np.array(v, dtype=np.float32), dt = ti.f32)
+                        ti.Vector(np.array(v, dtype=np.float32), dt=ti.f32)
                         if type(v) != ti.Vector
                         else v
                     )
@@ -102,7 +103,7 @@ class Rendering:
         self.iteration += 1
 
     @ti.kernel
-    def _render(self, t: ti.f32): # type: ignore
+    def _render(self, t: ti.f32):  # type: ignore
         """
         Render scene with one raymarching iteration.
 
@@ -174,7 +175,7 @@ class Rendering:
             self.depth_map[u, v] = first_closest < self.inf
 
     @ti.func
-    def next_hit(self, pos: Vec3D, d: Vec3D, t: ti.f32): # type: ignore
+    def next_hit(self, pos: Vec3D, d: Vec3D, t: ti.f32):  # type: ignore
         """
         Given a (x,y,z) position 'pos', a ray direction 'd' and time 't', use raymarching to compute:
         - 'closest': Closest point to the surface
@@ -216,7 +217,7 @@ class Rendering:
         return closest, normal, color
 
     @ti.func
-    def ray_march(self, p: Vec3D, d: Vec3D, t: ti.f32) -> ti.f32: # type: ignore
+    def ray_march(self, p: Vec3D, d: Vec3D, t: ti.f32) -> ti.f32:  # type: ignore
         """
         Use raymarching to determine the distance between the (x,y,z) position 'p' and the object surface in the ray direction 'd'.
 
@@ -240,7 +241,7 @@ class Rendering:
         return dist
 
     @ti.func
-    def sdf_normal(self, p: Vec3D, t: ti.f32) -> Vec3D: # type: ignore
+    def sdf_normal(self, p: Vec3D, t: ti.f32) -> Vec3D:  # type: ignore
         d = 1e-6
         n = ti.Vector([0.0, 0.0, 0.0])
         sdf_center = self.sdf(p, t)
@@ -251,11 +252,11 @@ class Rendering:
         return n.normalized()
 
     @ti.func
-    def sdf(self, p: Vec3D, t: ti.f32) -> ti.f32: # type: ignore
+    def sdf(self, p: Vec3D, t: ti.f32) -> ti.f32:  # type: ignore
         return min(np.inf, self.scene.sdf(p, t))
 
     @ti.func
-    def intersect_light(self, pos: Vec3D, d: Vec3D, t: ti.f32) -> ti.f32: # type: ignore
+    def intersect_light(self, pos: Vec3D, d: Vec3D, t: ti.f32) -> ti.f32:  # type: ignore
         """
         Compute the distance to the light source if the ray intersects it.
 
@@ -282,7 +283,14 @@ class Rendering:
 
     @ti.func
     def out_dir(
-        self, n: Vec3D, p: Vec3D, d: Vec3D, camera_pos: Vec3D, light_pos: Vec3D, t: ti.f32,) -> Vec3D: # type: ignore
+        self,
+        n: Vec3D,
+        p: Vec3D,
+        d: Vec3D,
+        camera_pos: Vec3D,
+        light_pos: Vec3D,
+        t: ti.f32,
+    ) -> Vec3D:  # type: ignore
 
         d = d.normalized()
         n = n.normalized()

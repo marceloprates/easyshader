@@ -3,9 +3,9 @@
 
 easyshader is a tool for rendering 3D scenes, exporting .ply files for 3D printing and creating animations, powered by Signed Distance Fields (SDFs) and written in Python/Taichi.
 
-![](pictures/logo.png)
-
 It was created to enable drawing 3D shapes using a very concise syntax, and is packed with 3D primitives, transformations and smooth operators.
+
+![](pictures/logo.png)
 
 # Basic usage
 
