@@ -408,7 +408,7 @@ class Cone(Shape):
         @ti.func
         def cone(p, t):
             q = ti.Vector([radius, height])
-            w = ti.Vector([(p.xz).norm(), height/2-p.y])
+            w = ti.Vector([(p.xz).norm(), height / 2 - p.y])
             a = w - q * tg.clamp(w.dot(q) / q.dot(q), 0.0, 1.0)
             b = w - q * ti.Vector([tg.clamp(w.x / q.x, 0.0, 1.0), 1.0])
             k = tg.sign(q.y)
@@ -418,3 +418,44 @@ class Cone(Shape):
             return d ** (1 / 2) * tg.sign(s)
 
         self.sdf = cone
+
+
+class Dodecahedron(Shape):
+    """
+    .. code-block::
+        :caption: Example: Icosahedron with (circumscribed sphere) radius = 1
+
+            input: Icosahedron(1,'#e63746').isometric()
+            output:
+
+    .. image:: ../source/_static/icosahedron.png
+            :scale: 40 %
+            :alt: alternate text
+            :align: center
+    """
+
+    def __init__(self, radius: Number, color: Union[Callable, str] = "#fff", **kwargs):
+        """
+        :param radius: (Circunscribed sphere) radius.
+        :type radius: Number
+        :param color: Octagon color. Can be either 1) a string encoding a hexadecimal color (example: "#fff"), 2) a color-computing function that should return a 3-uple (example: lambda p,t: (p.x,p.y,p.z)) or 3) a string expression (example: "(x,y,z)"). defaults to "#fff"
+        :type color: Union[Callable,str], optional
+        :return: Octagon Shape
+        :rtype: Octagon
+        """
+
+        super().__init__(color=color, **kwargs)
+
+        @ti.func
+        def dodeca(p, t):
+            G = ti.sqrt(5.0) * 0.5 + 0.5
+            n = ti.Vector([G, 1.0, 0.0])
+            n /= n.norm()
+            d = 0.0
+            p = abs(p)
+            d = max(d, p.dot(n))
+            d = max(d, p.dot(ti.Vector([n[1], n[2], n[0]])))
+            d = max(d, p.dot(ti.Vector([n[2], n[0], n[1]])))
+            return d - radius
+
+        self.sdf = dodeca

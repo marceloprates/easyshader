@@ -1013,7 +1013,7 @@ class Shape:
 
         return Shape(sdf, color=self.color)
 
-    def twist(self, k, axis="y"):
+    def twist(self, k, axis="y", justcolor=False):
         """
 
         Twists a shape along the y axis.
@@ -1051,7 +1051,7 @@ class Shape:
                 c_ = ti.cos(eval(k) * p.x)
                 s_ = ti.sin(eval(k) * p.x)
                 q = ti.Vector([c_ * p.y - s_ * p.z, s_ * p.y + c_ * p.z, p.x])
-                return self(q, t)
+                return self.sdf(q, t)
 
             # @ti.func
             def color(p, t):
@@ -1066,7 +1066,7 @@ class Shape:
                 c_ = ti.cos(eval(k) * p.y)
                 s_ = ti.sin(eval(k) * p.y)
                 q = ti.Vector([c_ * p.x - s_ * p.z, s_ * p.x + c_ * p.z, p.y])
-                return self(q, t)
+                return self.sdf(q, t)
 
             # @ti.func
             def color(p, t):
@@ -1081,7 +1081,7 @@ class Shape:
                 c_ = ti.cos(eval(k) * p.z)
                 s_ = ti.sin(eval(k) * p.z)
                 q = ti.Vector([c_ * p.x - s_ * p.y, s_ * p.x + c_ * p.y, p.z])
-                return self(q, t)
+                return self.sdf(q, t)
 
             # @ti.func
             def color(p, t):
@@ -1091,7 +1091,7 @@ class Shape:
                 return self.color(q, t)
 
         return Shape(
-            sdf,
+            sdf if not justcolor else self.sdf,
             color,
             **{k: v for k, v in self.__dict__.items() if k not in ["sdf", "color"]},
         )
