@@ -252,11 +252,13 @@ class Shape:
         depth=False,
         background="#aaa",
         background_distance=2,
+        verbose=None,
         **kwargs,
     ):
         img = self.render_static(
             t=t,
             depth=depth,
+            verbose=verbose,
             background=background,
             background_distance=background_distance,
             **kwargs,
@@ -271,6 +273,7 @@ class Shape:
         save=False,
         lights=[Light()],
         depth=False,
+        verbose=None,
         background_distance=2,
         background=None,
         **camera_kwargs,
@@ -291,7 +294,7 @@ class Shape:
             lights=lights,
             t=t,
             depth=depth,
-            verbose=self.verbose,
+            verbose=verbose if verbose else self.verbose,
         )
 
     def animate(
