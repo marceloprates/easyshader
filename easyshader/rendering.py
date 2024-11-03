@@ -11,6 +11,7 @@ from .utils import hex2numpy, get_palette
 
 from .transformations import rotate_x, rotate_y, rotate_z
 from .light import Light
+from tqdm import tqdm
 
 # Define "3D Vector" type
 Vec3D = ti.types.vector(3, ti.f32)
@@ -33,6 +34,7 @@ class Rendering:
         eps: float = 1e-6,
         inf: float = 1e10,
         fov: float = 0.2,
+        verbose: bool = False,
         dist_limit: float = 100.0,
         camera_pos: List[float] = [0, 0, 10],
         lights: List[Light] = [Light(pos=(0, 1, 1), radius=3.0)],
@@ -91,14 +93,17 @@ class Rendering:
         # Init time
         self.time = 0.0
 
-    def render(self, t: float):
+    def render(self, t: float) -> None:
         """
         Render scene with 'self.iterations' raymarching iterations.
 
         :param t: Time parameter (between 0 and 2pi)
         :type t: float
         """
-        for i in range(self.iterations):
+        pbar = np.arange(self.iterations)
+        if self.verbose:
+            pbar = tqdm(pbar, desc="Rendering scene...")
+        for i in pbar:
             self._render(float(t))
         self.iteration += 1
 

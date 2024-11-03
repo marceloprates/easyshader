@@ -43,7 +43,7 @@ class Camera:
 
         self.translations = translations
 
-    def snap(self, shape, lights, depth=False, t=0):
+    def snap(self, shape, lights, depth=False, t=0, verbose=False):
 
         # Apply camera translations
         camera_pos = self.rendering_kwargs["camera_pos"]
@@ -63,6 +63,7 @@ class Camera:
             ),
             lights=lights,
             camera_pos=camera_pos,
+            verbose=verbose,
             **{
                 k: v
                 for k, v in self.rendering_kwargs.items()

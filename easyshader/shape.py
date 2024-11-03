@@ -54,6 +54,7 @@ class Shape:
         palette: List[Union[str, Iterable[Number]]] = ["#000", "#fff"],
         background_color: any = None,
         text: any = None,
+        verbose: bool = False,
         **kwargs,
     ):
         """
@@ -290,6 +291,7 @@ class Shape:
             lights=lights,
             t=t,
             depth=depth,
+            verbose=self.verbose,
         )
 
     def animate(
