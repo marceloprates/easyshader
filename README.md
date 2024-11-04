@@ -6,7 +6,7 @@ It was created to enable drawing 3D shapes using a very concise syntax, and is p
 
 [![Run in Google Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/marceloprates/easyshader/blob/main/README.ipynb)
 
-<img src="pictures/logo.png" width="25%">
+<img src="pictures/logo.png" width="50%">
 
 
 # Basic usage
