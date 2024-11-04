@@ -1,24 +1,33 @@
 # easyshader: Examples
 
-
 easyshader is a tool for rendering 3D scenes, exporting .ply files for 3D printing and creating animations, powered by Signed Distance Fields (SDFs) and written in Python/Taichi.
 
 It was created to enable drawing 3D shapes using a very concise syntax, and is packed with 3D primitives, transformations and smooth operators.
 
-![](pictures/logo.png)
+[![Run in Google Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/marceloprates/easyshader/blob/main/README.ipynb)
+
+<img src="pictures/logo.png" width="25%">
+
 
 # Basic usage
 
 
 ```python
 from easyshader import *
+```
 
+    The autoreload extension is already loaded. To reload it, use:
+      %reload_ext autoreload
+
+
+
+```python
 Sphere(1)
 ```
 
 
     
-![png](README_files/README_3_0.png)
+![png](README_files/README_4_0.png)
     
 
 
@@ -31,7 +40,7 @@ Icosahedron(1,'#f55')
 
 
     
-![png](README_files/README_5_0.png)
+![png](README_files/README_6_0.png)
     
 
 
@@ -61,49 +70,49 @@ for obj in [Sphere(1), Cyllinder(1,1), Cone(1,2), Torus(1,.2), Box(1), BoxFrame(
 
 
     
-![png](README_files/README_8_0.png)
+![png](README_files/README_9_0.png)
     
 
 
 
     
-![png](README_files/README_8_1.png)
+![png](README_files/README_9_1.png)
     
 
 
 
     
-![png](README_files/README_8_2.png)
+![png](README_files/README_9_2.png)
     
 
 
 
     
-![png](README_files/README_8_3.png)
+![png](README_files/README_9_3.png)
     
 
 
 
     
-![png](README_files/README_8_4.png)
+![png](README_files/README_9_4.png)
     
 
 
 
     
-![png](README_files/README_8_5.png)
+![png](README_files/README_9_5.png)
     
 
 
 
     
-![png](README_files/README_8_6.png)
+![png](README_files/README_9_6.png)
     
 
 
 
     
-![png](README_files/README_8_7.png)
+![png](README_files/README_9_7.png)
     
 
 
@@ -113,7 +122,7 @@ Export your creations to polygon meshes for 3d printing or rendering on external
 
 
 ```python
-Icosahedron(1).to_mesh(simplify = 20, save_path='icosahedron.ply')
+#Icosahedron(1).to_mesh(simplify = 20, save_path='icosahedron.ply')
 ```
 
 Color your creations using functions defined over x,y,z and a color palette:
@@ -122,14 +131,15 @@ Color your creations using functions defined over x,y,z and a color palette:
 ```python
 palette = ['#B80C09','#0B4F6C','#01BAEF','#FBFBFF','#040F16']
 
-x = Box(.9, 'palette(4*(x+y**2+z**3))', palette = palette)
+x = Box(.8,'palette(6*(x+y+z))',palette = palette)
 x = x.isometric()
+
 x
 ```
 
 
     
-![png](README_files/README_13_0.png)
+![png](README_files/README_14_0.png)
     
 
 
@@ -144,7 +154,7 @@ BoxFrame(1,.1,'#0B4F6C') + Sphere(.5,'#B80C09')
 
 
     
-![png](README_files/README_16_0.png)
+![png](README_files/README_17_0.png)
     
 
 
@@ -157,7 +167,7 @@ Box(1,'#0B4F6C') - Sphere(1.2)
 
 
     
-![png](README_files/README_18_0.png)
+![png](README_files/README_19_0.png)
     
 
 
@@ -170,7 +180,7 @@ Icosahedron(1,'#0B4F6C') & Sphere(1.1)
 
 
     
-![png](README_files/README_20_0.png)
+![png](README_files/README_21_0.png)
     
 
 
@@ -194,7 +204,7 @@ x
 
 
     
-![png](README_files/README_23_0.png)
+![png](README_files/README_24_0.png)
     
 
 
@@ -203,21 +213,22 @@ Use the 't' (time) variable to control the animation
 
 
 ```python
-x = Box(1,'palette(4*((x+sin(t))+(y+cos(t))**2+z**3))',palette = palette)
+x = BoxFrame(1,.1,'palette(6*t + 6*(x+y+z))',palette = palette)
+x += '.1*sin(t)'
 x += 'ry t'
 x += 'rx t'
 
-x.animate(frames = 60, framerate = 15, iterations = 100)
+x.animate(frames = 60, framerate = 15, iterations = 1000)
 ```
 
-    Animating..: 100%|██████████| 59/59 [00:52<00:00,  1.12it/s]
+    Animating..: 100%|██████████| 59/59 [08:59<00:00,  9.14s/it]
 
 
 
 
 
     
-![png](README_files/README_25_1.png)
+![png](README_files/README_26_1.png)
     
 
 
@@ -233,7 +244,7 @@ Sphere(1) + 'dx .5'
 
 
     
-![png](README_files/README_28_0.png)
+![png](README_files/README_29_0.png)
     
 
 
@@ -244,7 +255,7 @@ Sphere(1) + '(.1,.2,.3)'
 
 
     
-![png](README_files/README_29_0.png)
+![png](README_files/README_30_0.png)
     
 
 
@@ -257,7 +268,7 @@ Sphere(1) * .2
 
 
     
-![png](README_files/README_31_0.png)
+![png](README_files/README_32_0.png)
     
 
 
@@ -268,7 +279,7 @@ Sphere(1) * (1,.2,1)
 
 
     
-![png](README_files/README_32_0.png)
+![png](README_files/README_33_0.png)
     
 
 
@@ -281,7 +292,7 @@ Box(1) + 'rx pi/4'
 
 
     
-![png](README_files/README_34_0.png)
+![png](README_files/README_35_0.png)
     
 
 
@@ -296,7 +307,7 @@ BoxFrame(1,.1,'#f44') + 'dx .2*y'
 
 
     
-![png](README_files/README_37_0.png)
+![png](README_files/README_38_0.png)
     
 
 
@@ -311,7 +322,7 @@ Box(1,'#f44').twist(2,'y')
 
 
     
-![png](README_files/README_40_0.png)
+![png](README_files/README_41_0.png)
     
 
 
@@ -329,7 +340,7 @@ x
 
 
     
-![png](README_files/README_42_0.png)
+![png](README_files/README_43_0.png)
     
 
 
@@ -351,13 +362,13 @@ display(sphere <<su(.5)>> box)
 
 
     
-![png](README_files/README_45_0.png)
+![png](README_files/README_46_0.png)
     
 
 
 
     
-![png](README_files/README_45_1.png)
+![png](README_files/README_46_1.png)
     
 
 
@@ -377,13 +388,13 @@ display(box <<sd(.5)>> sphere)
 
 
     
-![png](README_files/README_47_0.png)
+![png](README_files/README_48_0.png)
     
 
 
 
     
-![png](README_files/README_47_1.png)
+![png](README_files/README_48_1.png)
     
 
 
@@ -403,14 +414,76 @@ display(box <<si(.5)>> sphere)
 
 
     
-![png](README_files/README_49_0.png)
+![png](README_files/README_50_0.png)
     
 
 
 
     
-![png](README_files/README_49_1.png)
+![png](README_files/README_50_1.png)
     
+
+
+# Use custom taichi functions!
+
+
+```python
+'''
+from easyshader import *
+
+@ti.func
+def mandelbulb_fn(p,max_it,k):
+    z, dr, r = p, 1., 0.
+    for i in range(max_it):
+        r, steps = z.norm(), i
+        if r > 4.0: break;
+        # convert to polar coordinates
+        theta = ti.acos(z.z/r)
+        phi = ti.atan2(z.y,z.x)
+        dr = r**2 * 3 * dr + 1.0
+        # scale and rotate the point
+        zr = r**3
+        theta = theta*3
+        phi = phi*3
+        # convert back to cartesian coordinates
+        z = zr*ti.Vector([
+            ti.sin(theta)*ti.cos(phi),
+            ti.sin(phi)*ti.sin(theta),
+            ti.cos(theta)
+        ])
+        z+=p
+    out = ti.log(r)*r/dr
+    if k==1:
+        out = r
+    return out
+
+# Create mandelbulb shape
+mandelbulb = Shape(
+    # Call 'mandelbulb_fn' to compute the SDF
+    sdf = '.2*mandelbulb_fn(p,10,0)',
+    #color = 'palette(200*mandelbulb_fn(1.1*p))',
+    color = 'palette(12*mandelbulb_fn(p,10,1))',
+    palette = ['#0C0F0A', '#FBFF12', '#FF206E', '#41EAD4', '#FFFFFF'],
+    # Pass 'mandelbulb_fn' as a keyword argument
+    mandelbulb_fn = mandelbulb_fn,
+)
+
+mandelbulb = mandelbulb.isometric()
+
+mandelbulb.render(
+    resolution = (2480,3508),
+    fov = .25,
+    max_raymarch_steps = 200,
+    iterations = 1000,
+        verbose = True
+)'''
+```
+
+
+
+
+    "\nfrom easyshader import *\n\n@ti.func\ndef mandelbulb_fn(p,max_it,k):\n    z, dr, r = p, 1., 0.\n    for i in range(max_it):\n        r, steps = z.norm(), i\n        if r > 4.0: break;\n        # convert to polar coordinates\n        theta = ti.acos(z.z/r)\n        phi = ti.atan2(z.y,z.x)\n        dr = r**2 * 3 * dr + 1.0\n        # scale and rotate the point\n        zr = r**3\n        theta = theta*3\n        phi = phi*3\n        # convert back to cartesian coordinates\n        z = zr*ti.Vector([\n            ti.sin(theta)*ti.cos(phi),\n            ti.sin(phi)*ti.sin(theta),\n            ti.cos(theta)\n        ])\n        z+=p\n    out = ti.log(r)*r/dr\n    if k==1:\n        out = r\n    return out\n\n# Create mandelbulb shape\nmandelbulb = Shape(\n    # Call 'mandelbulb_fn' to compute the SDF\n    sdf = '.2*mandelbulb_fn(p,10,0)',\n    #color = 'palette(200*mandelbulb_fn(1.1*p))',\n    color = 'palette(12*mandelbulb_fn(p,10,1))',\n    palette = ['#0C0F0A', '#FBFF12', '#FF206E', '#41EAD4', '#FFFFFF'],\n    # Pass 'mandelbulb_fn' as a keyword argument\n    mandelbulb_fn = mandelbulb_fn,\n)\n\nmandelbulb = mandelbulb.isometric()\n\nmandelbulb.render(\n    resolution = (2480,3508),\n    fov = .25,\n    max_raymarch_steps = 200,\n    iterations = 1000,\n        verbose = True\n)"
+
 
 
 

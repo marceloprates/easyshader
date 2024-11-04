@@ -1,6 +1,7 @@
 import taichi as ti
 from typing import Union, Tuple, List
 
+
 @ti.data_oriented
 class Light:
     """
@@ -39,9 +40,10 @@ class Light:
         :alt: Light example image
         :align: center
     """
+
     def __init__(
         self,
-        pos: Union[Tuple[float, float, float], ti.Vector] = (1, 1, 1),
+        pos: Union[Tuple[float, float, float], ti.Vector] = (0, 4, 4),
         normal: Union[None, Tuple[float, float, float], ti.Vector] = None,
         radius: float = 5.0,
         translations: List[str] = None,
@@ -51,13 +53,16 @@ class Light:
         self.radius = radius
         self.translations = translations if translations is not None else []
 
-
-    def _convert_to_vector(self, value: Union[Tuple[float, float, float], ti.Vector]) -> ti.Vector:
+    def _convert_to_vector(
+        self, value: Union[Tuple[float, float, float], ti.Vector]
+    ) -> ti.Vector:
         if isinstance(value, (ti.Vector, ti.Matrix)):
             value = list(value.to_numpy())
         return ti.Vector(value)
 
-    def _determine_normal(self, normal: Union[None, Tuple[float, float, float], ti.Vector]) -> ti.Vector:
+    def _determine_normal(
+        self, normal: Union[None, Tuple[float, float, float], ti.Vector]
+    ) -> ti.Vector:
         if normal is None:
             return -self.pos.normalized()
         return self._convert_to_vector(normal)

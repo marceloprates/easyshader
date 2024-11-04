@@ -37,7 +37,7 @@ class Rendering:
         verbose: bool = False,
         dist_limit: float = 100.0,
         camera_pos: List[float] = [0, 0, 10],
-        lights: List[Light] = [Light(pos=(0, 1, 1), radius=3.0)],
+        lights: List[Light] = [Light(pos=(0, 1, 1), radius=5.0)],
         palette: List[str] = ["#000", "#fff"],
         use_cel_shading: bool = False,
         animate: bool = False,
@@ -105,6 +105,7 @@ class Rendering:
             pbar = tqdm(pbar, desc="Rendering scene...")
         for i in pbar:
             self._render(float(t))
+            ti.sync()
         self.iteration += 1
 
     @ti.kernel

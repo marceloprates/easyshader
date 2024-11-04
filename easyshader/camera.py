@@ -17,12 +17,12 @@ from tqdm import tqdm
 class Camera:
     def __init__(
         self,
-        iterations=100,
+        iterations=500,
         resolution=(400, 400),
         frames=20,
         framerate=30,
         max_ray_depth=10,
-        max_raymarch_steps=50,
+        max_raymarch_steps=1000,
         eps=1e-6,
         inf=1e10,
         fov=0.2,
@@ -70,7 +70,6 @@ class Camera:
                 if k not in ["camera_pos"]
             },
         )
-        # print(rendering.use_cel_shading)
 
         # Create & return static image
         rendering.render(t)
@@ -183,3 +182,6 @@ class Camera:
 
     def __add__(self, other):
         return Camera(**self.rendering_kwargs, translations=self.translations + [other])
+
+
+palette = (["#0C0F0A", "#FF206E", "#FBFF12", "#41EAD4", "#FFFFFF"],)
