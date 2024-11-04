@@ -1,4 +1,4 @@
-# easyshader
+# easyshader: Examples
 
 easyshader is a tool for rendering 3D scenes, exporting .ply files for 3D printing and creating animations, powered by Signed Distance Fields (SDFs) and written in Python/Taichi.
 
@@ -6,15 +6,19 @@ It was created to enable drawing 3D shapes using a very concise syntax, and is p
 
 [![Run in Google Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/marceloprates/easyshader/blob/main/README.ipynb)
 
-<img src="pictures/logo.png" width="50%">
+<img src="https://github.com/marceloprates/easyshader/blob/main/pictures/logo.png?raw=1" width="50%">
 
 
 # Basic usage
 
 
 ```python
+# If you're running this from Google Colab or you simply don't have easyshader installed, you can install it by running:
+#%pip install git+https://github.com/marceloprates/easyshader
+
 from easyshader import *
 ```
+
 
 ```python
 Sphere(1)
@@ -423,9 +427,6 @@ display(box <<si(.5)>> sphere)
 
 
 ```python
-'''
-from easyshader import *
-
 @ti.func
 def mandelbulb_fn(p,max_it,k):
     z, dr, r = p, 1., 0.
@@ -465,19 +466,26 @@ mandelbulb = Shape(
 
 mandelbulb = mandelbulb.isometric()
 
-mandelbulb.render(
-    resolution = (2480,3508),
-    fov = .25,
-    max_raymarch_steps = 200,
-    iterations = 1000,
-        verbose = True
-)'''
+# Only run the lines below if you have a very powerful GPU!
+
+#mandelbulb.render(
+#    resolution = (2480,3508),
+#    fov = .25,
+#    max_raymarch_steps = 200,
+#    iterations = 1000,
+#    verbose = True
+#)
 ```
 
+    Rendering scene...: 100%|██████████| 1000/1000 [20:02<00:00,  1.20s/it]
 
 
 
-    "\nfrom easyshader import *\n\n@ti.func\ndef mandelbulb_fn(p,max_it,k):\n    z, dr, r = p, 1., 0.\n    for i in range(max_it):\n        r, steps = z.norm(), i\n        if r > 4.0: break;\n        # convert to polar coordinates\n        theta = ti.acos(z.z/r)\n        phi = ti.atan2(z.y,z.x)\n        dr = r**2 * 3 * dr + 1.0\n        # scale and rotate the point\n        zr = r**3\n        theta = theta*3\n        phi = phi*3\n        # convert back to cartesian coordinates\n        z = zr*ti.Vector([\n            ti.sin(theta)*ti.cos(phi),\n            ti.sin(phi)*ti.sin(theta),\n            ti.cos(theta)\n        ])\n        z+=p\n    out = ti.log(r)*r/dr\n    if k==1:\n        out = r\n    return out\n\n# Create mandelbulb shape\nmandelbulb = Shape(\n    # Call 'mandelbulb_fn' to compute the SDF\n    sdf = '.2*mandelbulb_fn(p,10,0)',\n    #color = 'palette(200*mandelbulb_fn(1.1*p))',\n    color = 'palette(12*mandelbulb_fn(p,10,1))',\n    palette = ['#0C0F0A', '#FBFF12', '#FF206E', '#41EAD4', '#FFFFFF'],\n    # Pass 'mandelbulb_fn' as a keyword argument\n    mandelbulb_fn = mandelbulb_fn,\n)\n\nmandelbulb = mandelbulb.isometric()\n\nmandelbulb.render(\n    resolution = (2480,3508),\n    fov = .25,\n    max_raymarch_steps = 200,\n    iterations = 1000,\n        verbose = True\n)"
+
+
+    
+![png](README_files/README_52_1.png)
+    
 
 
 
