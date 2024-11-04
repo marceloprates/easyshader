@@ -16,11 +16,6 @@ It was created to enable drawing 3D shapes using a very concise syntax, and is p
 from easyshader import *
 ```
 
-    The autoreload extension is already loaded. To reload it, use:
-      %reload_ext autoreload
-
-
-
 ```python
 Sphere(1)
 ```
