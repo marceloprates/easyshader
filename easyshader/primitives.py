@@ -459,3 +459,85 @@ class Dodecahedron(Shape):
             return d - radius
 
         self.sdf = dodeca
+
+
+class Plane(Shape):
+    """
+    .. code-block::
+        :caption: Example: Plane with normal vector (0, 1, 0) and distance from origin 0
+
+            input: Plane((0, 1, 0), 0, '#e63746')
+            output:
+
+    .. image:: ../source/_static/plane.png
+        :scale: 40 %
+        :alt: alternate text
+        :align: center
+    """
+
+    def __init__(
+        self,
+        normal: Iterable,
+        distance: Number,
+        color: Union[Callable, str] = "#fff",
+        **kwargs
+    ):
+        """
+        :param normal: Normal vector of the plane.
+        :type normal: Iterable
+        :param distance: Distance from the origin.
+        :type distance: Number
+        :param color: Plane color. Can be either 1) a string encoding a hexadecimal color (example: "#fff"), 2) a color-computing function that should return a 3-uple (example: lambda p,t: (p.x,p.y,p.z)) or 3) a string expression (example: "(x,y,z)"). defaults to "#fff"
+        :type color: Union[Callable, str], optional
+        :return: Plane Shape
+        :rtype: Plane
+        """
+
+        super().__init__(color=color, **kwargs)
+
+        if type(normal) != ti.Vector:
+            normal = ti.Vector(np.array(normal))
+
+        @ti.func
+        def plane(p, t):
+            return p.dot(normal) + distance
+
+        self.sdf = plane
+
+
+class Gyroid(Shape):
+    """
+    .. code-block::
+        :caption: Example: Gyroid with scale = 1
+
+            input: Gyroid(1, '#e63746').isometric()
+            output:
+
+    .. image:: ../source/_static/gyroid.png
+        :scale: 40 %
+        :alt: alternate text
+        :align: center
+    """
+
+    def __init__(self, scale: Number, color: Union[Callable, str] = "#fff", **kwargs):
+        """
+        :param scale: Scale of the gyroid.
+        :type scale: Number
+        :param color: Gyroid color. Can be either 1) a string encoding a hexadecimal color (example: "#fff"), 2) a color-computing function that should return a 3-uple (example: lambda p,t: (p.x,p.y,p.z)) or 3) a string expression (example: "(x,y,z)"). defaults to "#fff"
+        :type color: Union[Callable, str], optional
+        :return: Gyroid Shape
+        :rtype: Gyroid
+        """
+
+        super().__init__(color=color, **kwargs)
+
+        @ti.func
+        def gyroid(p, t):
+            return (
+                ti.sin(p.x * scale) * ti.cos(p.y * scale)
+                + ti.sin(p.y * scale) * ti.cos(p.z * scale)
+                + ti.sin(p.z * scale) * ti.cos(p.x * scale)
+                + 1
+            )
+
+        self.sdf = gyroid
