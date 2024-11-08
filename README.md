@@ -121,7 +121,7 @@ Export your creations to polygon meshes for 3d printing or rendering on external
 
 
 ```python
-#Icosahedron(1).to_mesh(simplify = 20, save_path='icosahedron.ply')
+#Icosahedron(1).to_mesh(simplify = 20, save_path='icosahedron.obj')
 ```
 
 Color your creations using functions defined over x,y,z and a color palette:

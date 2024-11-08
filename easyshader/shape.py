@@ -433,7 +433,7 @@ class Shape:
         self,
         resolution=400,
         level=0.0,
-        save_path="output.ply",
+        save_path="output.obj",
         preview=True,
         simplify=None,
     ):
@@ -495,7 +495,7 @@ class Shape:
         mesh = trimesh.Trimesh(vertices=verts, faces=faces, vertex_colors=colors_np)
 
         # Save the mesh as a PLY file
-        mesh.export(save_path, file_type="obj")
+        mesh.export(save_path, file_type=save_path.split(".")[-1])
 
         # Load the mesh from the .ply file using Open3D
         mesh = o3d.io.read_triangle_mesh(save_path)
